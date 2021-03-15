@@ -5,6 +5,8 @@ from typing import Dict, List, Optional, Tuple
 import cvxpy as cp
 import matplotlib.pyplot as plt
 import numpy as np
+from sklearn.preprocessing import normalize
+
 
 def gen_timeseries(start: float, stop: float, timestep: float) -> Tuple[List[float], float]:
   """Return evenly spaced values within a given half-open interval [start, stop)
@@ -22,130 +24,160 @@ def timevar(timeseries: List[float], name: Optional[str] = None):
   return cp.Variable(len(timeseries), name=name)
 
 
-def MichaelisMentenConstraint(lhs_var: cp.Variable, rhs_var: cp.Variable, beta1: float, beta2: float) -> cp.SOC:
-  """lhs_var <= B1*X/(B2+X)"""
-  return cp.SOC(
-    beta1 * beta2  +  beta1 * rhs_var  -  beta2 * lhs_var,
-    cp.vstack([
-      beta1 * rhs_var,
-      beta2 * lhs_var,
-      beta1 * beta2
-    ])
-  )
-
-
 # def HyperbolicConstraint(w: cp.Variable, x: cp.Variable, y: cp.Variable) -> cp.SOC:
 #   """dot(w,w)<=x*y"""
 #   return cp.SOC(x+y, cp.vstack([2*w, x-y]))
 
 
 class Problem:
-  def __init__(self):
+  def __init__(self, tmin, tmax, desired_tstep):
+    ts, dt = gen_timeseries(start=tmin, stop=tmax, timestep=desired_tstep)
     self.vars: Dict[str, cp.Variable] = {}
     self.controls: Dict[str, cp.Variable] = {}
     self.constraints = []
-    self.timeseries: List[float] = []
-    self.dt: float = 0
+    self.timeseries: List[float] = ts
+    self.dt: float = dt
 
-  def setTimeSeries(self, start: float, stop: float, timestep: float):
-    self.timeseries, self.dt = gen_timeseries(start=start, stop=stop, timestep=timestep)
-
-  def addTimeVar(self,
+  def add_time_var(self,
     name: str,
     initial: Optional[float] = None,
     lb: Optional[float] = None,
-    ub: Optional[float] = None
+    ub: Optional[float] = None,
+    anchor_last: bool = False
   ) -> None:
     self.vars[name] = cp.Variable(len(self.timeseries), name=name)
     if lb is not None:
-      self.addConstraint(lb<=self.vars[name])
+      self.constraint(lb<=self.vars[name])
     if ub is not None:
-      self.addConstraint(self.vars[name]<=ub)
+      self.constraint(self.vars[name]<=ub)
     if initial is not None:
-      self.addConstraint(self.vars[name][0]==initial)
+      self.constraint(self.vars[name][0]==initial)
+    if anchor_last:
+      self.constraint(self.vars[name][-1]==0)
 
     return self.vars[name]
 
-  def addTimeControlVar(self,
+  def add_control_var(self,
     name: str,
     dim: int,
     lb: Optional[float] = None,
-    ub: Optional[float] = None
+    ub: Optional[float] = None,
   ) -> None:
-    self.controls[name] = cp.Variable((len(self.timeseries), dim), name=name)
+    # No control on the last timestep
+    self.controls[name] = cp.Variable((len(self.timeseries)-1, dim), name=name)
     if lb is not None:
-      self.addConstraint(lb<=self.controls[name])
+      self.constraint(lb<=self.controls[name])
     if ub is not None:
-      self.addConstraint(self.controls[name]<=ub)
+      self.constraint(self.controls[name]<=ub)
 
     return self.controls[name]
 
-  def addConstraint(self, constraint) -> None:
+  def constraint(self, constraint) -> None:
     self.constraints.append(constraint)
 
+  # TODO: p.addPiecewiseFunction(lambda x: x**0.75, yvar=g[t], xvar=F[t], xmin=0, xmax=30, n=50, last_ditch=80)
   def addPiecewiseFunction(self,
     func,
+    yvar: cp.Variable,
     xvar: cp.Variable,
     xmin: float,
     xmax: float,
     n: int,
     last_ditch: Optional[float] = None,
-    yvar: Optional[cp.Variable] = None,
   ) -> cp.Variable:
     #William, p. 149
     xvals = np.linspace(start=xmin, stop=xmax, num=n)
     if last_ditch is not None:
       xvals = np.hstack((xvals, last_ditch))
-
     yvals = func(xvals)
-    if yvar is None:
-      yvar  = cp.Variable()
-
     l = cp.Variable(len(xvals))
-    self.addConstraint(xvar==xvals*l)
-    self.addConstraint(yvar==yvals*l)
-    self.addConstraint(cp.sum(l)==1)
-    self.addConstraint(l>=0)
+    self.constraint(xvar==xvals*l)
+    self.constraint(yvar==yvals*l)
+    self.constraint(cp.sum(l)==1)
+    self.constraint(l>=0)
     return yvar
 
-  def plotVariables(self) -> plt.Figure:
+  def michaelis_menten_constraint(
+    self,
+    lhs_var: cp.Variable,
+    rhs_var: cp.Variable,
+    β1: float = 1,
+    β2: float = 1,
+    β3: float = 1,
+  ) -> cp.SOC:
+    """lhs_var <= B1*X/(B2+X)"""
+    β1 = β1 / β3
+    β2 = β2 / β3
+    self.constraint(0<=rhs_var - lhs_var)
+    self.constraint(cp.SOC(
+      β1 * β2  +  β1 * rhs_var  -  β2 * lhs_var,
+      cp.vstack([
+        β1 * rhs_var,
+        β2 * lhs_var,
+        β1 * β2
+      ])
+    ))
+
+  def plotVariables(self, norm_controls: bool = True) -> plt.Figure:
     fig = plt.figure()
     for x in self.vars:
       plt.plot(self.timeseries, self.vars[x].value, label=x)
     for x in self.controls:
+      val = self.controls[x].value.copy()
+      if norm_controls:
+        val = normalize(val, axis=1, norm='l2')
       for ci in range(self.controls[x].shape[1]):
-        plt.plot(self.timeseries, self.controls[x].value[:,ci], label=f"{x}_{ci}")
+        plt.plot(self.timeseries[:-1], val[:,ci], label=f"{x}_{ci}")
     plt.legend()
     plt.show()
 
   def solve(self, objective, verbose: bool = False) -> float:
     problem = cp.Problem(objective, self.constraints)
-    optval = problem.solve("ECOS", verbose=verbose)
+    optval = problem.solve("SCS", verbose=verbose)
     return optval
 
+  def time_indices(self):
+    return range(len(self.timeseries)-1)
 
-def Iwasa2000_when_flower(a=0.1, h=1, T=8.0, F0=0.5, desired_dt=0.1):
-  p = Problem()
-  p.setTimeSeries(0.0, T, desired_dt)
+  def constrain_control_sum_at_time(self, control: cp.Variable, t: int, sum_val) -> None:
+    self.constraint(cp.sum(control[t, :]) == sum_val)
 
-  u = p.addTimeControlVar("u", dim=2, lb=0, ub=None)
-  F = p.addTimeVar("F", lb=0, ub=None, initial=F0)
-  R = p.addTimeVar("R", lb=0, ub=None, initial=0)
-  g = p.addTimeVar("g", lb=0, ub=None)
 
-  for i, t in enumerate(p.timeseries):
-    if i == len(p.timeseries) - 1:
-      p.addConstraint(u[-1,:]==0)
-      p.addConstraint(g[-1]==0)
-      break
+def Iwasa2000_when_flower(a=0.1, h=1, T=8.0, F0=0.5, desired_dt=0.05):
+  # TODO: Iwasa seems to have listed the wrong parameter values as evidenced by integrating g(F) from 0 to 4
+  p = Problem(tmin=0.0, tmax=T, desired_tstep=desired_dt)
 
-    # p.addConstraint(MichaelisMentenConstraint(g[i], F[i], a, 1))
-    this_g = p.addPiecewiseFunction(lambda x: a*x**0.75, xvar=F[i], xmin=0, xmax=30, n=50, last_ditch=80, yvar=g[i])
-    p.addConstraint(cp.sum(u[i,:])==this_g)
-    p.addConstraint(F[i+1] == F[i] + u[i,0] * p.dt)
-    p.addConstraint(R[i+1] == R[i] + u[i,1] * p.dt)
+  u = p.add_control_var("u", dim=2, lb=0, ub=None)
+  F = p.add_time_var("F", lb=0, ub=None, initial=F0)
+  R = p.add_time_var("R", lb=0, ub=None, initial=0)
+  g = p.add_time_var("g", lb=0, ub=None, anchor_last=True)
+
+  for t in p.time_indices():
+    p.michaelis_menten_constraint(g[t], F[t], β1=h, β2=1.0, β3=a) # TODO: Check a-h ordering
+    p.constrain_control_sum_at_time(u, t, g[t])
+    p.constraint(F[t+1] == F[t] + p.dt * u[t,0])
+    p.constraint(R[t+1] == R[t] + p.dt * u[t,1])
 
   optval = p.solve(cp.Maximize(R[-1]), verbose=True)
+
+  p.plotVariables()
+
+  return optval
+
+
+def MirmiraniOster1978(rhat=0.5, rtilde=0.2, μ=0.1, ν=0.1, T=8.0, P0=0.05, desired_dt=0.05):
+  p = Problem(tmin=0.0, tmax=T, desired_tstep=desired_dt)
+
+  u = p.add_control_var("u", dim=2, lb=0, ub=None)
+  P = p.add_time_var("P", lb=0, ub=None, initial=P0)
+  S = p.add_time_var("S", lb=0, ub=None, initial=0)
+
+  for t in p.time_indices():
+    p.constraint(cp.sum(u[t,:])==P[t])
+    p.constraint(P[t+1] == P[t] + p.dt * (rhat   * u[t,0] - μ * P[t]))
+    p.constraint(S[t+1] == S[t] + p.dt * (rtilde * u[t,1] - ν * S[t]))
+
+  optval = p.solve(cp.Maximize(S[-1]), verbose=True)
 
   print(f"Optval: {optval}")
 
@@ -153,5 +185,5 @@ def Iwasa2000_when_flower(a=0.1, h=1, T=8.0, F0=0.5, desired_dt=0.1):
 
   return optval
 
-
+# MirmiraniOster1978()
 Iwasa2000_when_flower()
