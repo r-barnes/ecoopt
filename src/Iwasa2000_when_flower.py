@@ -1,8 +1,6 @@
-import cvxpy as cp
-from problem import Problem
+from .problem import cp, Problem
 
 def Iwasa2000_when_flower(a=0.1, h=1, T=8.0, F0=0.5, desired_dt=0.05):
-  # TODO: Iwasa seems to have listed the wrong parameter values as evidenced by integrating g(F) from 0 to 4
   p = Problem(tmin=0.0, tmax=T, desired_tstep=desired_dt)
 
   u = p.add_control_var("u", dim=2, lb=0, ub=None)
@@ -16,8 +14,6 @@ def Iwasa2000_when_flower(a=0.1, h=1, T=8.0, F0=0.5, desired_dt=0.05):
     p.constraint(F[t+1] == F[t] + p.dt * u[t,0])
     p.constraint(R[t+1] == R[t] + p.dt * u[t,1])
 
-  optval = p.solve(cp.Maximize(R[-1]), verbose=True)
+  optval = p.solve(cp.Maximize(R[-1]))
 
-  p.plotVariables()
-
-  return optval
+  return p
