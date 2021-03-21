@@ -7,6 +7,8 @@ def MirmiraniOster1978_TwoSpeciesSingleSeason(r=0.5, T=1.0, P0=0.05, desired_dt=
   u1 = p.add_control_var("u1", dim=2, lb=0, ub=None)
   u2 = p.add_control_var("u2", dim=2, lb=0, ub=None)
 
+  print(repr(u1))
+
   P1 = p.add_time_var("P1", lb=0, ub=None, initial=P0)
   S1 = p.add_time_var("S1", lb=0, ub=None, initial=0)
 
@@ -14,14 +16,15 @@ def MirmiraniOster1978_TwoSpeciesSingleSeason(r=0.5, T=1.0, P0=0.05, desired_dt=
   S2 = p.add_time_var("S2", lb=0, ub=None, initial=0)
 
   for t in p.time_indices():
-    g1 = cp.Variable(2, pos=True)
-    g2 = cp.Variable(2, pos=True)
+    g1 = cp.Variable(2, pos=True, name="g1")
+    g2 = cp.Variable(2, pos=True, name="g2")
 
     # p.constraint(g1 <= 10) #TODO: Remove
     # p.constraint(g2 <= 10) #TODO: Remove
-
-    p.constraint(r - P1[t] >= 0)
-    p.constraint(r - P2[t] >= 0)
+    a = cp.Variable(pos=True, name="a")
+    b = cp.Variable(pos=True, name="b")
+    p.constraint(r - P1[t] == a)
+    p.constraint(r - P2[t] == b)
 
     p.hyperbolic_constraint(g1[0], r - P2[t], u1[t, 0])
     p.hyperbolic_constraint(g2[0], r - P1[t], u2[t, 0])

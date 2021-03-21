@@ -104,11 +104,11 @@ class Problem:
     β1: float = 1,
     β2: float = 1,
     β3: float = 1,
-  ) -> cp.SOC:
+  ) -> None:
     """lhs_var <= β1*X/(β2+β3*X)"""
     β1 = β1 / β3
     β2 = β2 / β3
-    self.constraint(0<=rhs_var - lhs_var)
+    self.constraint(0<=rhs_var - lhs_var) #TODO: Is there any way to get rid of this constraint?
     self.constraint(cp.SOC(
       β1 * β2  +  β1 * rhs_var  -  β2 * lhs_var,
       cp.vstack([
@@ -118,9 +118,9 @@ class Problem:
       ])
     ))
 
-  def hyperbolic_constraint(self, w: cp.Variable, x: cp.Variable, y: cp.Variable) -> cp.SOC:
+  def hyperbolic_constraint(self, w: cp.Variable, x: cp.Variable, y: cp.Variable) -> None:
     """dot(w,w)<=x*y"""
-    return cp.SOC(x + y, cp.vstack([2 * w, x - y]))
+    self.constraint(cp.SOC(x + y, cp.vstack([2 * w, x - y])))
 
   def plotVariables(self, norm_controls: bool = True) -> plt.Figure:
     fig, axs = plt.subplots(2)
