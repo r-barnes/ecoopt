@@ -10,7 +10,7 @@ def Iwasa2000_when_flower(a=0.1, h=1, T=8.0, F0=0.5, desired_dt=0.05):
 
   for t in p.time_indices():
     p.michaelis_menten_constraint(g[t], F[t], β1=h, β2=1.0, β3=a) # TODO: Check a-h ordering
-    p.constrain_control_sum_at_time(u, t, g[t])
+    p.constrain_control_sum_at_time(u, g[t], t)
     p.constraint(F[t+1] == F[t] + p.dt * u[t,0])
     p.constraint(R[t+1] == R[t] + p.dt * u[t,1])
 
