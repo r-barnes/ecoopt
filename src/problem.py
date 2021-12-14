@@ -1,15 +1,29 @@
 #!/usr/bin/env python3
 
-from typing import Callable, Dict, Generator, List, Optional, Tuple, Union
+from dataclasses import dataclass
+from typing import Any, Callable, Dict, Iterator, List, Optional, Tuple, Union
 
 import cvxpy as cp
 import matplotlib.pyplot as plt
 import numpy as np
-from sklearn.preprocessing import normalize
+from cvxpy.constraints.constraint import Constraint
+from cvxpy.expressions.expression import Expression
+from cvxpy.expressions.variable import Variable
+from sklearn.preprocessing import normalize #TODO: Remove this and use my own normalize function to save dependency
+from .Piecewise1D import Piecewise1D
+from .Piecewise2D import Piecewise2D
 
+# import torch.nn as nn
+
+# from learn_to_separate import SeparatorNet
 
 index3d_type = Tuple[int, Union[int,slice], Union[int,slice]]
 
+def Minimize(x: Expression):
+  return cp.Minimize(x)
+
+def Maximize(x: Expression):
+  return cp.Maximize(x)
 
 def gen_timeseries(start: float, stop: float, timestep: float) -> Tuple[List[float], float]:
   """Return evenly spaced values within a given half-open interval [start, stop)
@@ -23,7 +37,7 @@ def gen_timeseries(start: float, stop: float, timestep: float) -> Tuple[List[flo
 
 
 class Variable3D:
-    def __init__(self, shape: Tuple[int, int, int], name, *args, **kwargs) -> None:
+    def __init__(self, shape: Tuple[int, int, int], name: str, *args: Any, **kwargs: Any) -> None:
       self.args = args
       self.kwargs = kwargs
       if len(shape)!=3:
@@ -32,7 +46,7 @@ class Variable3D:
       self.var_shape = shape[1:]
       if self.years<1:
         raise RuntimeError("Number of years must be >0")
-      init_var = lambda name: cp.Variable(self.var_shape, name, *args, **kwargs)
+      init_var = lambda name: Variable(self.var_shape, name, *args, **kwargs)
       self.data = {i:init_var(f"{name}{i}") for i in range(self.years)}
     def __repr__(self) -> str:
       shape = (self.years,) + self.var_shape
@@ -44,23 +58,23 @@ class Variable3D:
         raise IndexError("Season dimension must be an integer!")
       if index[0] not in self.data:
         raise IndexError("Season value is not in the variable's range!")
-    def __getitem__(self, index: index3d_type) -> cp.Variable:
+    def __getitem__(self, index: index3d_type) -> Variable:
       if len(index)==2:
         index = (0,) + index
       self._check_season_bounds(index)
       return self.data[index[0]][index[1:]]
-    def __iter__(self) -> Generator[cp.Variable, None, None]:
+    def __iter__(self) -> Iterator[Variable]:
       return (x for x in self.data.values())
-    def items(self) -> Generator[Tuple[int,cp.Variable], None, None]:
+    def items(self) -> Iterator[Tuple[int,Variable]]:
       return ((n,x) for n, x in self.data.items())
 
 
 class Problem:
   def __init__(self, tmin: float, tmax: float, desired_tstep: float, years: int = 1, seasonize: bool = False) -> None:
     ts, dt = gen_timeseries(start=tmin, stop=tmax, timestep=desired_tstep)
-    self.vars: Dict[str, cp.Variable] = {}
+    self.vars: Dict[str, Variable] = {}
     self.controls: Dict[str, Variable3D] = {}
-    self.constraints = []
+    self.constraints: List[Constraint] = []
     self.timeseries: List[float] = ts
     self.dt: float = dt
 
@@ -77,36 +91,47 @@ class Problem:
     else:
       return (self.years, len(self.timeseries))
 
-  def tfirst(self, var: str) -> cp.Variable():
+  def tfirst(self, var: str) -> Variable:
     if self.years==1 and not self.seasonize:
       return self.vars[var][0]
     else:
       return self.vars[var][0,0]
 
-  def tlast(self, var: str) -> cp.Variable():
+  def tlast(self, var: str) -> Variable:
     if self.years==1 and not self.seasonize:
       return self.vars[var][-1]
     else:
       return self.vars[var][-1,-1]
 
-  def add_time_var(self,
+  def add_time_var(
+    self,
     name: str,
     initial: Optional[float] = None,
-    lb: Optional[float] = None,
-    ub: Optional[float] = None,
+    lower_bound: Optional[float] = None,
+    upper_bound: Optional[float] = None,
     anchor_last: bool = False
-  ) -> cp.Variable():
-    self.vars[name] = cp.Variable(
+  ) -> Variable:
+    """[summary]
+
+    Args: TODO
+        anchor_last - The last value of the variable is forced equal to zero
+
+    Returns:
+        [type]: [description]
+    """
+    is_pos = lower_bound is not None and lower_bound >= 0
+
+    self.vars[name] = Variable(
       self._time_shape(),
       name=name,
-      pos=(lb>=0) # cvxpy gains extra analysis powers if pos is used
+      pos=is_pos, # cvxpy gains extra analysis powers if pos is used
     )
     self.vars[name].ts_type = "time"
 
-    if lb is not None:
-      self.constraint(lb<=self.vars[name])
-    if ub is not None:
-      self.constraint(self.vars[name]<=ub)
+    if lower_bound is not None:
+      self.constraint(lower_bound<=self.vars[name])
+    if upper_bound is not None:
+      self.constraint(self.vars[name]<=upper_bound)
     if initial is not None:
       self.constraint(self.tfirst(name)==initial)
     if anchor_last:
@@ -120,21 +145,21 @@ class Problem:
   def add_year_var(self,
     name: str,
     initial: Optional[float] = None,
-    lb: Optional[float] = None,
-    ub: Optional[float] = None,
+    lower_bound: Optional[float] = None,
+    upper_bound: Optional[float] = None,
     anchor_last: bool = False
-  ) -> cp.Variable():
-    self.vars[name] = cp.Variable(
+  ) -> Variable:
+    self.vars[name] = Variable(
       self.years,
       name=name,
-      pos=(lb>=0) # cvxpy gains extra analysis powers if pos is used
+      pos=(lower_bound>=0) # cvxpy gains extra analysis powers if pos is used
     )
     self.vars[name].ts_type = "year"
 
-    if lb is not None:
-      self.constraint(lb<=self.vars[name])
-    if ub is not None:
-      self.constraint(self.vars[name]<=ub)
+    if lower_bound is not None:
+      self.constraint(lower_bound<=self.vars[name])
+    if upper_bound is not None:
+      self.constraint(self.vars[name]<=upper_bound)
     if initial is not None:
       self.constraint(self.vars[name][0]==initial)
     if anchor_last:
@@ -145,71 +170,106 @@ class Problem:
   def add_control_var(self,
     name: str,
     dim: int,
-    lb: Optional[float] = None,
-    ub: Optional[float] = None,
+    lower_bound: Optional[float] = None,
+    upper_bound: Optional[float] = None,
   ) -> Variable3D:
     self.controls[name] = Variable3D(
       (self.years, len(self.timeseries), dim),
       name=name,
-      pos=(lb>=0)
+      pos=(lower_bound>=0)
     )
     self.controls[name].ts_type = "control"
 
     for x in self.controls[name]:
-      if lb is not None:
-        self.constraint(lb<=x)
-      if ub is not None:
-        self.constraint(x<=ub)
+      if lower_bound is not None:
+        self.constraint(lower_bound<=x)
+      if upper_bound is not None:
+        self.constraint(x<=upper_bound)
 
     return self.controls[name]
 
-  def constraint(self, constraint) -> None:
+  def dconstraint(
+    self,
+    var: Variable,
+    t: int,
+    dt: float,
+    rhs: Expression,
+  ) -> None:
+    self.constraints.append(
+      var[t+1] == var[t] + dt * rhs
+    )
+
+  def constraint(self, constraint: Constraint) -> None:
     self.constraints.append(constraint)
 
-  # TODO: p.addPiecewiseFunction(lambda x: x**0.75, yvar=g[t], xvar=F[t], xmin=0, xmax=30, n=50, last_ditch=80)
-  def addPiecewiseFunction(self,
+  def add_piecewise_function(
+    self,
     func: Callable[[np.ndarray], float],
-    yvar: cp.Variable,
-    xvar: cp.Variable,
+    yvar: Variable,
+    xvar: Variable,
     xmin: float,
     xmax: float,
     n: int,
     last_ditch: Optional[float] = None,
-  ) -> cp.Variable:
+    use_sos2: bool = False,
+  ) -> Variable:
     #William, p. 149
     xvals = np.linspace(start=xmin, stop=xmax, num=n)
     if last_ditch is not None:
       xvals = np.hstack((xvals, last_ditch))
     yvals = func(xvals)
-    l = cp.Variable(len(xvals))
+    l = Variable(len(xvals))
     self.constraint(xvar==xvals*l)
     self.constraint(yvar==yvals*l)
     self.constraint(cp.sum(l)==1)
     self.constraint(l>=0)
+    if use_sos2:
+      self.add_sos2_constraint(l)
     return yvar
+
+  def add_piecewise1d_function(
+    self,
+    func: Piecewise1D,
+    xvar: Variable,
+  ) -> Variable:
+    fitted_y, constraints = func.fit(xvar)
+    self.constraints.extend(constraints)
+    return fitted_y
+
+  def add_piecewise2d_function(
+    self,
+    func: Piecewise2D,
+    xvar: Variable,
+    yvar: Variable,
+  ) -> Variable:
+    fitted_z, constraints = func.fit(xvar, yvar)
+    self.constraints.extend(constraints)
+    return fitted_z
 
   def michaelis_menten_constraint(
     self,
-    lhs_var: cp.Variable,
-    rhs_var: cp.Variable,
+    lhs_var: Variable,
+    rhs_var: Variable,
     β1: float = 1,
     β2: float = 1,
     β3: float = 1,
   ) -> None:
-    """lhs_var <= β1*X/(β2+β3*X)"""
+    """lhs_var <= β1*rhs_var/(β2+β3*rhs_var)"""
     β1 = β1 / β3
     β2 = β2 / β3
-    self.constraint(0<=rhs_var - lhs_var) #TODO: Is there any way to get rid of this constraint?
-    self.constraint(cp.SOC(
-      β1 * β2  +  β1 * rhs_var  -  β2 * lhs_var,
-      cp.vstack([
-        β1 * rhs_var,
-        β2 * lhs_var,
-        β1 * β2
-      ])
-    ))
+    self.constraint(lhs_var <= β1 * (1-β2*cp.inv_pos(β2+rhs_var)))
 
-  def hyperbolic_constraint(self, w: cp.Variable, x: cp.Variable, y: cp.Variable) -> None:
+    # self.constraint(0<=rhs_var - lhs_var) #TODO: Is there any way to get rid of this constraint?
+    # self.constraint(cp.SOC(
+    #   β1 * β2  +  β1 * rhs_var  -  β2 * lhs_var,
+    #   cp.vstack([
+    #     β1 * rhs_var,
+    #     β2 * lhs_var,
+    #     β1 * β2
+    #   ])
+    # ))
+
+  def hyperbolic_constraint(self, w: Variable, x: Variable, y: Variable) -> None:
     """dot(w,w)<=x*y"""
     self.constraint(cp.SOC(x + y, cp.vstack([2 * w, x - y])))
 
@@ -227,7 +287,7 @@ class Problem:
         for n in range(self.years):
           full_times.extend([n*self.timeseries[-1] + x for x in self.timeseries])
         axs[0].plot(full_times, var.value.flatten(), label=name)
-      elif var.ts_type=="year":
+      elif var.ts_type=="y":
         full_times = [(n+1)*self.timeseries[-1] for n in range(self.years)]
         axs[0].plot(full_times, var.value.flatten(), '.', label=name)
 
@@ -245,25 +305,96 @@ class Problem:
     fig.legend()
     return fig
 
-  def solve(self, objective, verbose: bool = False) -> Tuple[Union[str,None],float]:
+  def _error_on_bad_status(self, status: Optional[str]) -> None:
+    if status == "infeasible":
+      raise RuntimeError("Problem was infeasible!")
+    elif status == "unbounded":
+      raise RuntimeError("Problem was unbounded!")
+    elif status == "unbounded_inaccurate":
+      raise RuntimeError("Problem was unbounded and inaccurate!")
+
+  def solve(
+    self,
+    objective,
+    solver: str = "CBC",
+    **kwargs: Any,
+  ) -> Tuple[Union[str,None],float]:
     problem = cp.Problem(objective, self.constraints)
-    optval = problem.solve("SCS", verbose=verbose)
+
+    print("Problem is DCP?", problem.is_dcp())
+
+    optval = problem.solve(solver, **kwargs)
+
+    self._error_on_bad_status(problem.status)
+
     return problem.status, optval
 
-  def time_indices(self) -> Generator[Union[int, Tuple[int, int]], None, None]:
+  def time_indices(self) -> Iterator[Tuple[int, int]]:
     if self.years==1 and not self.seasonize:
-      return range(len(self.timeseries)-1)
+      return ((0,t) for t in range(len(self.timeseries)-1))
     else:
-      return ((n,t) for n in range(self.years) for t in range(len(self.timeseries)-1))
+      return ((y,t) for y in range(self.years) for t in range(len(self.timeseries)-1))
 
-  def year_indices(self) -> Generator[int, None, None]:
+  def idx2time(self, time_index: int) -> float:
+    assert 0<=time_index<len(self.timeseries)
+    return self.timeseries[time_index]
+
+  def year_indices(self) -> Iterator[int]:
     return range(self.years)
 
-  def time_discount(self, var: str, σ: float):
-    expr = 0
+  def time_discount(self, var: str, σ: float) -> Expression:
+    expr: Expression = 0
     for n in range(self.years):
       expr += self.vars[var][n] * (σ**n)
     return expr
 
-  def constrain_control_sum_at_time(self, control: cp.Variable, sum_val, t: int, n: int = 0) -> None:
-    self.constraint(cp.sum(control[n, t, :]) == sum_val)
+  def constrain_control_sum_at_time(
+    self,
+    control: Variable3D,
+    sum_var: Expression,
+    t: int,
+    n: int = 0
+  ) -> None:
+    self.constraint(cp.sum(control[n, t, :]) <= sum_var) #TODO: Should this be == or <= ?
+
+  def add_sos2_constraint(self, x: Variable) -> None:
+    # TODO: From https://www.philipzucker.com/trajectory-optimization-of-a-pendulum-with-mixed-integer-linear-programming/
+    assert len(x.shape) == 1
+    n = x.size
+    z = Variable(n - 1, boolean=True)
+    self.constraint(0 <= x)
+    self.constraint(x[0] <= z[0])
+    self.constraint(x[-1] <= z[-1])
+    self.constraint(x[1:-1] <= z[:-1]+z[1:])
+    self.constraint(cp.sum(z) == 1)
+    self.constraint(cp.sum(x) == 1)
+
+  # def add_learned_separable_constraint(
+  #   self,
+  #   net: SeparatorNet,
+  #   inp: Variable,
+  #   use_sos2: bool = False
+  # ) -> Variable:
+  #   # TODO: Writeup
+  #   assert len(inp.shape) == 1
+  #   assert inp.size == net.input_dim
+
+  #   outputs = [inp]
+
+  #   for layer in net.sequential:
+  #     if isinstance(layer, nn.Linear):
+  #       weight = layer.weight.detach().cpu().numpy()
+  #       bias = layer.bias.detach().cpu().numpy()
+  #       this_output = Variable(weight.shape[0])
+  #       self.constraint(this_output == weight @ outputs[-1] + bias)
+  #       outputs.append(this_output)
+  #     elif isinstance(layer, nn.Tanh):
+  #       assert len(outputs[-1].shape) == 1
+  #       this_output = Variable(outputs[-1].size)
+  #       for y, x in zip(this_output, outputs[-1]):
+  #         self.add_piecewise_function(np.tanh, y, x, -1, 10, 50, 100, use_sos2=use_sos2)
+  #       outputs.append(this_output)
+
+  #   assert outputs[-1].size == 1
+
+  #   return outputs[-1]
