@@ -7,20 +7,21 @@ def MironchenkoFigure4() -> Problem:
     return 0.2 + 0.8 * abs(math.sin(math.pi / 12 * t))
 
   def mu(t: float) -> float:
-    return 0.4*abs(math.cos(math.pi / 12 *t))
+    return 0.4 * abs(math.cos(math.pi / 12 *t))
 
   def g(x: Variable):
     return 2.5 * x
 
   omega = 0.1
+  seed_mass = 0.3
 
   p = Problem(tmin=0.0, tmax=60, desired_tstep=0.1)
 
   u  = p.add_control_var("u", dim=2, lower_bound=0, upper_bound=None)
   # Initial state extracted graphically from Figure 4
-  x1 = p.add_time_var("x1", lower_bound=0, upper_bound=None, initial=0)
-  x2 = p.add_time_var("x2", lower_bound=0, upper_bound=None, initial=0)
-  x3 = p.add_time_var("x3", lower_bound=0, upper_bound=None, initial=0.2949852507374615)
+  x1 = p.add_time_var("x1", lower_bound=0, upper_bound=None, initial=0.05*seed_mass)
+  x2 = p.add_time_var("x2", lower_bound=0, upper_bound=None, initial=0.00*seed_mass)
+  x3 = p.add_time_var("x3", lower_bound=0, upper_bound=None, initial=0.95*seed_mass)
   f  = p.add_time_var("f",  lower_bound=0, upper_bound=None, anchor_last=True)
 
   for _, ti in p.time_indices():
