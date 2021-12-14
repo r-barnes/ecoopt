@@ -26,8 +26,8 @@ def MironchenkoFigure5a() -> Problem:
 
   for _, ti in p.time_indices():
     t = p.idx2time(ti)
-    p.michaelis_menten_constraint(f[ti], x1[ti], β1=0.5, β2=1, β3=0.01)
-    p.constrain_control_sum_at_time(u, g(x1[ti]), ti)
+    p.michaelis_menten_constraint(f[ti], x1[ti], β1=0.5, β2=1, β3=0.1)
+    p.constrain_control_sum_at_time(u, g(x3[ti]), ti)
     p.dconstraint(x1, ti, p.dt, u[ti,0] - mu(t) * x1[ti])
     p.dconstraint(x2, ti, p.dt, u[ti,1])
     p.dconstraint(x3, ti, p.dt, zeta(t) * f[ti] - u[ti,0] - u[ti,1] - omega * x3[ti])

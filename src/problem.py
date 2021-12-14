@@ -25,15 +25,15 @@ def Minimize(x: Expression):
 def Maximize(x: Expression):
   return cp.Maximize(x)
 
-def gen_timeseries(start: float, stop: float, timestep: float) -> Tuple[List[float], float]:
+def gen_timeseries(start: float, stop: float, timestep: float) -> Tuple[np.ndarray, float]:
   """Return evenly spaced values within a given half-open interval [start, stop)
 
   Returns: (Timeseries, Actual Timestep)
   """
   num = int(round((stop-start)/timestep))
-  timeseries = list(np.linspace(start=start, stop=stop, num=num))
+  timeseries = np.linspace(start=start, stop=stop, num=num)
   actual_timestep = timeseries[1] - timeseries[0]
-  return timeseries, timestep
+  return timeseries, actual_timestep
 
 
 class Variable3D:
@@ -75,7 +75,7 @@ class Problem:
     self.vars: Dict[str, Variable] = {}
     self.controls: Dict[str, Variable3D] = {}
     self.constraints: List[Constraint] = []
-    self.timeseries: List[float] = ts
+    self.timeseries: np.ndarray = ts
     self.dt: float = dt
 
     if years<=0:
