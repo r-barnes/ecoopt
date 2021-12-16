@@ -23,19 +23,19 @@ def MironchenkoFigure2(is_stable: bool) -> Problem:
 
   p = Problem(tmin=0.0, tmax=12, desired_tstep=0.02)
 
-  u  = p.add_control_var("u", dim=2, lower_bound=0, upper_bound=None)
-  x1 = p.add_time_var("x1", lower_bound=0, upper_bound=None, initial=0.05*seed_mass)
-  x2 = p.add_time_var("x2", lower_bound=0, upper_bound=None, initial=0.00*seed_mass)
-  x3 = p.add_time_var("x3", lower_bound=0, upper_bound=None, initial=0.95*seed_mass)
-  f  = p.add_time_var("f",  lower_bound=0, upper_bound=None, anchor_last=True)
+  u  = p.add_control_var("u", dim=2, lower_bound=0)
+  x1 = p.add_time_var("x1", lower_bound=0, initial=0.05*seed_mass)
+  x2 = p.add_time_var("x2", lower_bound=0, initial=0.00*seed_mass)
+  x3 = p.add_time_var("x3", lower_bound=0, initial=0.95*seed_mass)
+  f  = p.add_time_var("f",  lower_bound=0, anchor_last=True)
 
   for _, ti in p.time_indices():
     t = p.idx2time(ti)
     p.michaelis_menten_constraint(f[ti], x1[ti], β1=1.5 if is_stable else 4, β2=1.0, β3=0.3)
     p.constrain_control_sum_at_time(u, g(x3[ti]), ti)
-    p.dconstraint(x1, ti, p.dt, u[ti,0] - mu(t) * x1[ti])
-    p.dconstraint(x2, ti, p.dt, u[ti,1])
-    p.dconstraint(x3, ti, p.dt, zeta(t) * f[ti] - u[ti,0] - u[ti,1] - omega(t) * x3[ti])
+    p.dconstraint(x1, ti, u[ti,0] - mu(t) * x1[ti])
+    p.dconstraint(x2, ti, u[ti,1])
+    p.dconstraint(x3, ti, zeta(t) * f[ti] - u[ti,0] - u[ti,1] - omega(t) * x3[ti])
 
   status, optval = p.solve(
     Maximize(x2[-1]), solver="ECOS", verbose=True, max_iters=10000,

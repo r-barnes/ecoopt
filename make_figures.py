@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import matplotlib.pyplot as plt
+import numpy as np
 
 from src.Iwasa2000_when_flower import Iwasa2000_when_flower
 from src.MirmiraniOster1978_single_season import MirmiraniOster1978
@@ -12,6 +13,8 @@ from src.Mironchenko2014_figure4 import MironchenkoFigure4
 from src.Mironchenko2014_figure5a import MironchenkoFigure5a
 from src.Mironchenko2014_figure5c import MironchenkoFigure5c
 from src.Mironchenko2014_figure5e import MironchenkoFigure5e
+from src.Iwasa2000_shoot_root_balance import Iwasa2000_shoot_root_balance
+from src.Piecewise2DConvex import Piecewise2DConvex
 
 # p = Iwasa2000_when_flower()
 # fig = p.plotVariables()
@@ -51,6 +54,7 @@ from src.Mironchenko2014_figure5e import MironchenkoFigure5e
 # fig = p.plotVariables(hide_vars=["f"], norm_controls=True)
 # fig.show()
 # plt.show()
+# fig.savefig("imgs/Mironchenko_figure4.pdf")
 
 # Doesn't reproduce
 # p = MironchenkoFigure3(is_annual=True)
@@ -79,3 +83,42 @@ from src.Mironchenko2014_figure5e import MironchenkoFigure5e
 # fig.show()
 # plt.show()
 # fig.savefig("imgs/MironchenkoFigure5e.pdf")
+
+def gfunc(x1: np.ndarray, x2: np.ndarray) -> np.ndarray:
+  a1 = 2
+  a2 = 60
+  b1 = 0.5
+  b2 = 2
+  L = 1
+  W = 1
+  return 1/(a1/L/np.power(x1, b1) + a2/W/np.power(x2, b2))
+
+gpiecewise = Piecewise2DConvex(
+  func=gfunc,
+  xvalues=np.linspace(0.01, 20, 20),
+  yvalues=np.linspace(0.01, 20, 20),
+)
+
+# fig = gpiecewise.plot_samples()
+# fig.show()
+# plt.show()
+# fig.savefig("imgs/iwasa1984_hull_samples.pdf", bbox_inches='tight')
+
+# fig = gpiecewise.plot_hull(full=True)
+# fig.show()
+# plt.show()
+# fig.savefig("imgs/iwasa1984_hull_full.pdf", bbox_inches='tight')
+
+# fig = gpiecewise.plot_hull(full=False)
+# fig.show()
+# plt.show()
+# fig.savefig("imgs/iwasa1984_hull_upper.pdf", bbox_inches='tight')
+
+
+# gpiecewise.plot_full_comparison()
+
+
+# p = Iwasa2000_shoot_root_balance()
+# fig = p.plotVariables(hide_vars=["g"], norm_controls=True)
+# fig.show()
+# plt.show()

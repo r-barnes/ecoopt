@@ -1,22 +1,26 @@
 from .problem import Problem, Maximize
 
-def Iwasa1989_multi_season(
-  a: float = 0.2, b: float = 1, f: float = 0.05, h: float = 0.05,
-  T: float = 100.0, S0: float = 2, dt: float = 0.5, years: int = 8, γ: float = 0.8
-):
+def Iwasa1989_multi_season(T: float = 100.0, years: int = 8, dt: float=0.5) -> Problem:
   p = Problem(tmin=0.0, tmax=T, desired_tstep=dt, years=years, seasonize=True)
 
-  u = p.add_control_var("u", dim=1, lower_bound=0, upper_bound=None)
-  F = p.add_time_var("F", lower_bound=0, upper_bound=None, initial=0)
-  S = p.add_time_var("S", lower_bound=0, upper_bound=None, initial=S0)
-  g = p.add_time_var("g", lower_bound=0, upper_bound=None, anchor_last=True)
-  R = p.add_year_var("R", lower_bound=0, upper_bound=None)
+  a  = p.add_parameter("a", value = 0.2)
+  b  = p.add_parameter("b", value = 1)
+  f  = p.add_parameter("f", value = 0.05)
+  h  = p.add_parameter("h", value = 0.05)
+  S0 = p.add_parameter("S0", value = 2)
+  γ  = p.add_parameter("γ", value = 0.8)
 
-  for n, t in p.time_indices():
-    p.constraint(F[n,t+1] == F[n,t] + p.dt * u[n,t,0])
-    p.constraint(S[n,t+1] == S[n,t] + p.dt * (g[n,t] - u[n,t,0]))
-    p.michaelis_menten_constraint(g[n,t], F[n,t], β1=f, β2=1.0, β3=h)
-    p.constraint(u[n,t,0]<=a*F[n,t]+b)
+  u = p.add_control_var("u", dim=1, lower_bound=0)
+  F = p.add_time_var("F", lower_bound=0, initial=0)
+  S = p.add_time_var("S", lower_bound=0, initial=S0)
+  g = p.add_time_var("g", lower_bound=0, anchor_last=True)
+  R = p.add_year_var("R", lower_bound=0)
+
+  for n, ti in p.time_indices():
+    p.constrain_control_sum_at_time(u, a*F[n,ti]+b, n=n, t=ti)
+    p.dconstraint(F, (n,ti), u[n,ti,0])
+    p.dconstraint(S, (n,ti), g[n,ti] - u[n,ti,0])
+    p.michaelis_menten_constraint(g[n,ti], F[n,ti], β1=f, β2=1.0, β3=h)
 
   for n in p.year_indices():
     p.constraint(F[n, 0] == 0)

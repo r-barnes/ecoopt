@@ -11,7 +11,8 @@ from cvxpy.expressions.expression import Expression
 from cvxpy.expressions.variable import Variable
 from sklearn.preprocessing import normalize #TODO: Remove this and use my own normalize function to save dependency
 from .Piecewise1D import Piecewise1D
-from .Piecewise2D import Piecewise2D
+from .Piecewise2DMIP import Piecewise2DMIP
+from .Piecewise2DConvex import Piecewise2DConvex
 
 # import torch.nn as nn
 
@@ -75,6 +76,7 @@ class Problem:
     self.vars: Dict[str, Variable] = {}
     self.controls: Dict[str, Variable3D] = {}
     self.constraints: List[Constraint] = []
+    self.parameters: Dict[str, cp.Parameter] = {}
     self.timeseries: np.ndarray = ts
     self.dt: float = dt
 
@@ -106,7 +108,7 @@ class Problem:
   def add_time_var(
     self,
     name: str,
-    initial: Optional[float] = None,
+    initial: Optional[Union[float, cp.Parameter]] = None,
     lower_bound: Optional[float] = None,
     upper_bound: Optional[float] = None,
     anchor_last: bool = False
@@ -144,7 +146,7 @@ class Problem:
 
   def add_year_var(self,
     name: str,
-    initial: Optional[float] = None,
+    initial: Optional[Union[float, cp.Parameter]] = None,
     lower_bound: Optional[float] = None,
     upper_bound: Optional[float] = None,
     anchor_last: bool = False
@@ -166,6 +168,16 @@ class Problem:
       self.constraint(self.vars[name][-1]==0)
 
     return self.vars[name]
+
+  def add_parameter(self, name: str, value: Optional[Union[float, np.ndarray]] = None) -> cp.Parameter:
+    if isinstance(value, np.ndarray):
+      self.parameters[name] = cp.Parameter(shape=value.shape, name=name)
+    else:
+      self.parameters[name] = cp.Parameter(name=name)
+
+    self.parameters[name].value = value
+
+    return self.parameters[name]
 
   def add_control_var(self,
     name: str,
@@ -191,13 +203,17 @@ class Problem:
   def dconstraint(
     self,
     var: Variable,
-    t: int,
-    dt: float,
+    t: Union[int, Tuple[int, int]],
     rhs: Expression,
   ) -> None:
-    self.constraints.append(
-      var[t+1] == var[t] + dt * rhs
-    )
+    if isinstance(t, tuple):
+      self.constraints.append(
+        var[t[0],t[1]+1] == var[t] + self.dt * rhs
+      )
+    elif isinstance(t, int):
+      self.constraints.append(
+        var[t+1] == var[t] + self.dt * rhs
+      )
 
   def constraint(self, constraint: Constraint) -> None:
     self.constraints.append(constraint)
@@ -238,7 +254,7 @@ class Problem:
 
   def add_piecewise2d_function(
     self,
-    func: Piecewise2D,
+    func: Union[Piecewise2DMIP, Piecewise2DConvex],
     xvar: Variable,
     yvar: Variable,
   ) -> Variable:

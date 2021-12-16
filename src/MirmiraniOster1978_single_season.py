@@ -1,16 +1,22 @@
 from .problem import cp, Problem
 
-def MirmiraniOster1978(rhat=0.5, rtilde=0.2, μ=0.1, ν=0.1, T=8.0, P0=0.05, desired_dt=0.05):
-  p = Problem(tmin=0.0, tmax=T, desired_tstep=desired_dt)
+def MirmiraniOster1978(T: float = 8.0, dt: float = 0.05) -> Problem:
+  p = Problem(tmin=0.0, tmax=T, desired_tstep=dt)
 
-  u = p.add_control_var("u", dim=2, lb=0, ub=None)
-  P = p.add_time_var("P", lb=0, ub=None, initial=P0)
-  S = p.add_time_var("S", lb=0, ub=None, initial=0)
+  rhat   = p.add_parameter("rhat", value=0.5)
+  rtilde = p.add_parameter("rtilde", value=0.2)
+  μ      = p.add_parameter("μ", value=0.1)
+  ν      = p.add_parameter("ν", value=0.1)
+  P0     = p.add_parameter("P0", value=0.05)
 
-  for t in p.time_indices():
-    p.constrain_control_sum_at_time(u, P[t], t)
-    p.constraint(P[t+1] == P[t] + p.dt * (rhat   * u[t,0] - μ * P[t]))
-    p.constraint(S[t+1] == S[t] + p.dt * (rtilde * u[t,1] - ν * S[t]))
+  u = p.add_control_var("u", dim=2, lower_bound=0)
+  P = p.add_time_var("P", lower_bound=0, initial=P0)
+  S = p.add_time_var("S", lower_bound=0, initial=0)
+
+  for ti in p.time_indices():
+    p.constrain_control_sum_at_time(u, P[ti], ti)
+    p.dconstraint(P, ti, rhat   * u[ti,0] - μ * P[ti])
+    p.dconstraint(S, ti, rtilde * u[ti,1] - ν * S[ti])
 
   optval = p.solve(cp.Maximize(S[-1]))
 
