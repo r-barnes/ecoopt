@@ -49,9 +49,11 @@ class Variable3D:
         raise RuntimeError("Number of years must be >0")
       init_var = lambda name: Variable(self.var_shape, name, *args, **kwargs)
       self.data = {i:init_var(f"{name}{i}") for i in range(self.years)}
+
     def __repr__(self) -> str:
       shape = (self.years,) + self.var_shape
       return f"TSVariable({shape}, args={self.args}, kwargs={self.kwargs})"
+
     def _check_season_bounds(self, index: index3d_type) -> None:
       if len(index)!=3:
         raise IndexError("Insufficient indexing dimensions. Include season?")
@@ -59,13 +61,16 @@ class Variable3D:
         raise IndexError("Season dimension must be an integer!")
       if index[0] not in self.data:
         raise IndexError("Season value is not in the variable's range!")
+
     def __getitem__(self, index: index3d_type) -> Variable:
       if len(index)==2:
         index = (0,) + index
       self._check_season_bounds(index)
       return self.data[index[0]][index[1:]]
+
     def __iter__(self) -> Iterator[Variable]:
       return (x for x in self.data.values())
+
     def items(self) -> Iterator[Tuple[int,Variable]]:
       return ((n,x) for n, x in self.data.items())
 
@@ -121,6 +126,8 @@ class Problem:
     Returns:
         [type]: [description]
     """
+    assert name not in self.vars
+
     is_pos = lower_bound is not None and lower_bound >= 0
 
     self.vars[name] = Variable(
@@ -151,6 +158,8 @@ class Problem:
     upper_bound: Optional[float] = None,
     anchor_last: bool = False
   ) -> Variable:
+    assert name not in self.vars
+
     self.vars[name] = Variable(
       self.years,
       name=name,
@@ -170,6 +179,8 @@ class Problem:
     return self.vars[name]
 
   def add_parameter(self, name: str, value: Optional[Union[float, np.ndarray]] = None) -> cp.Parameter:
+    assert name not in self.parameters
+
     if isinstance(value, np.ndarray):
       self.parameters[name] = cp.Parameter(shape=value.shape, name=name)
     else:
@@ -185,6 +196,8 @@ class Problem:
     lower_bound: Optional[float] = None,
     upper_bound: Optional[float] = None,
   ) -> Variable3D:
+    assert name not in self.controls
+
     self.controls[name] = Variable3D(
       (self.years, len(self.timeseries), dim),
       name=name,

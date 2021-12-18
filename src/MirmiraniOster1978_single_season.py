@@ -1,4 +1,4 @@
-from .problem import cp, Problem
+from .problem import Maximize, Problem
 
 def MirmiraniOster1978(T: float = 8.0, dt: float = 0.05) -> Problem:
   p = Problem(tmin=0.0, tmax=T, desired_tstep=dt)
@@ -18,6 +18,6 @@ def MirmiraniOster1978(T: float = 8.0, dt: float = 0.05) -> Problem:
     p.dconstraint(P, ti, rhat   * u[ti,0] - μ * P[ti])
     p.dconstraint(S, ti, rtilde * u[ti,1] - ν * S[ti])
 
-  optval = p.solve(cp.Maximize(S[-1]))
+  optval = p.solve(Maximize(S[-1]))
 
   return p

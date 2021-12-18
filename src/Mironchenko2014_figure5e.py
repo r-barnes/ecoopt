@@ -35,7 +35,7 @@ def MironchenkoFigure5e() -> Problem:
     p.dconstraint(x3, ti, zeta(t) * f[ti] - u[ti,0] - u[ti,1] - omega * x3[ti])
 
   discount = np.exp(-0.03 * p.timeseries)
-  status, optval = p.solve(Maximize(x2@discount), solver="ECOS", verbose=True)
+  status, optval = p.solve(Maximize(x2 @ discount), solver="ECOS", verbose=True)
 
   print(status)
 

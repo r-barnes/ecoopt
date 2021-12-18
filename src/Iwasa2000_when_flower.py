@@ -1,4 +1,4 @@
-from .problem import cp, Problem
+from .problem import Maximize, Problem
 
 def Iwasa2000_when_flower(T: float = 8.0, dt: float = 0.05) -> Problem:
   p = Problem(tmin=0.0, tmax=T, desired_tstep=dt)
@@ -13,11 +13,11 @@ def Iwasa2000_when_flower(T: float = 8.0, dt: float = 0.05) -> Problem:
   g = p.add_time_var("g", lower_bound=0, anchor_last=True)
 
   for _, ti in p.time_indices():
-    p.michaelis_menten_constraint(g[ti], F[ti], β1=h, β2=1.0, β3=a) # TODO: Check a-h ordering
+    p.michaelis_menten_constraint(g[ti], F[ti], β1=h, β2=1.0, β3=a)
     p.constrain_control_sum_at_time(u, g[ti], ti)
     p.dconstraint(F, ti, u[ti,0])
     p.dconstraint(R, ti, u[ti,1])
 
-  optval = p.solve(cp.Maximize(R[-1]))
+  optval = p.solve(Maximize(R[-1]))
 
   return p

@@ -1,49 +1,45 @@
-from .problem import cp, Problem
+from .problem import Maximize, Problem, Variable
 
+def MirmiraniOster1978_TwoSpeciesSingleSeason(T: float = 10.0, dt: float = 0.1) -> Problem:
+  p = Problem(tmin=0.0, tmax=T, desired_tstep=dt)
 
-def MirmiraniOster1978_TwoSpeciesSingleSeason(r=0.5, T=1.0, P0=0.05, desired_dt=0.01):
-  p = Problem(tmin=0.0, tmax=T, desired_tstep=desired_dt)
+  r1  = p.add_parameter("r1",  value=0.5)
+  r2  = p.add_parameter("r2",  value=0.5)
+  P10 = p.add_parameter("P10", value=0.05)
+  P20 = p.add_parameter("P20", value=0.05)
 
-  u1 = p.add_control_var("u1", dim=2, lb=0, ub=None)
-  u2 = p.add_control_var("u2", dim=2, lb=0, ub=None)
+  u1 = p.add_control_var("u1", dim=2, lower_bound=0)
+  u2 = p.add_control_var("u2", dim=2, lower_bound=0)
 
-  print(repr(u1))
+  P1 = p.add_time_var("P1", lower_bound=0, initial=P10)
+  S1 = p.add_time_var("S1", lower_bound=0, initial=0)
 
-  P1 = p.add_time_var("P1", lb=0, ub=None, initial=P0)
-  S1 = p.add_time_var("S1", lb=0, ub=None, initial=0)
+  P2 = p.add_time_var("P2", lower_bound=0, initial=P20)
+  S2 = p.add_time_var("S2", lower_bound=0, initial=0)
 
-  P2 = p.add_time_var("P2", lb=0, ub=None, initial=P0)
-  S2 = p.add_time_var("S2", lb=0, ub=None, initial=0)
+  for _, ti in p.time_indices():
+    dpdt = Variable(2, pos=True, name="g1")
+    dsdt = Variable(2, pos=True, name="g2")
 
-  for t in p.time_indices():
-    g1 = cp.Variable(2, pos=True, name="g1")
-    g2 = cp.Variable(2, pos=True, name="g2")
+    p.hyperbolic_constraint(dpdt[0], r1 - P2[ti], u1[ti, 0])
+    p.hyperbolic_constraint(dpdt[1], r2 - P1[ti], u2[ti, 0])
 
-    # p.constraint(g1 <= 10) #TODO: Remove
-    # p.constraint(g2 <= 10) #TODO: Remove
-    a = cp.Variable(pos=True, name="a")
-    b = cp.Variable(pos=True, name="b")
-    p.constraint(r - P1[t] == a)
-    p.constraint(r - P2[t] == b)
+    p.hyperbolic_constraint(dsdt[0], r1 - P2[ti], u1[ti, 1])
+    p.hyperbolic_constraint(dsdt[1], r2 - P1[ti], u2[ti, 1])
 
-    p.hyperbolic_constraint(g1[0], r - P2[t], u1[t, 0])
-    p.hyperbolic_constraint(g2[0], r - P1[t], u2[t, 0])
+    p.constraint(r1 - P2[ti] >= 0)
+    p.constraint(r2 - P1[ti] >= 0)
 
-    p.hyperbolic_constraint(g1[1], r - P2[t], u1[t, 1])
-    p.hyperbolic_constraint(g2[1], r - P1[t], u2[t, 1])
+    p.dconstraint(P1, ti, dpdt[0])
+    p.dconstraint(P2, ti, dpdt[1])
 
-    p.constraint(P1[t+1] == P1[t] + p.dt * g1[0])
-    p.constraint(P2[t+1] == P2[t] + p.dt * g2[0])
+    p.dconstraint(S1, ti, dsdt[0])
+    p.dconstraint(S2, ti, dsdt[1])
 
-    p.constraint(S1[t+1] == S1[t] + p.dt * g1[1])
-    p.constraint(S2[t+1] == S2[t] + p.dt * g2[1])
+    p.constrain_control_sum_at_time(u1, P1[ti], ti)
+    p.constrain_control_sum_at_time(u2, P2[ti], ti)
 
-    p.constrain_control_sum_at_time(u1, t, P1[t])
-    p.constrain_control_sum_at_time(u2, t, P2[t])
-
-  status, optval = p.solve(cp.Maximize(S1[-1]+S2[-1]))
-
-  print("Status",status)
-  print("Optval",optval)
+  # The problem here is figuring what to optimize and how to find an ESS with linear programming?
+  # status, optval = p.solve(Maximize(p.vars["S1"][-1]), solver="ECOS", verbose=True)
 
   return p

@@ -3,6 +3,8 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
+from src.problem import Maximize
+
 from src.Iwasa2000_when_flower import Iwasa2000_when_flower
 from src.MirmiraniOster1978_single_season import MirmiraniOster1978
 from src.MirmiraniOster1978_two_species_single_season import MirmiraniOster1978_TwoSpeciesSingleSeason
@@ -26,9 +28,33 @@ from src.Piecewise2DConvex import Piecewise2DConvex
 # plt.show()
 # fig.savefig("imgs/MirmiraniOster1978_single_season.pdf")
 
+
+uval = None
+while True:
+  p = MirmiraniOster1978_TwoSpeciesSingleSeason()
+  if uval is not None:
+    p.constraint(p.controls["u2"][0,:,:]==uval)
+
+  # The problem here is figuring what to optimize and how to find an ESS with linear programming?
+  status, optval = p.solve(Maximize(p.vars["S1"][-1]), solver="ECOS", verbose=True)
+
+  print("Status", status)
+  print("Optval", optval)
+
+  fig = p.plotVariables()
+  fig.show()
+  plt.show()
+
+  uval = p.controls["u1"][0,:,:].value
+
+
 # p = MirmiraniOster1978_TwoSpeciesSingleSeason()
 # fig = p.plotVariables()
 # fig.show()
+# plt.show()
+
+# plt.plot(p.vars["P1"].value, p.vars["P2"].value)
+# plt.plot(p.vars["S2"].value, p.vars["S1"].value)
 # plt.show()
 
 # p = Iwasa1989_multi_season(years=4)
@@ -84,20 +110,20 @@ from src.Piecewise2DConvex import Piecewise2DConvex
 # plt.show()
 # fig.savefig("imgs/MironchenkoFigure5e.pdf")
 
-def gfunc(x1: np.ndarray, x2: np.ndarray) -> np.ndarray:
-  a1 = 2
-  a2 = 60
-  b1 = 0.5
-  b2 = 2
-  L = 1
-  W = 1
-  return 1/(a1/L/np.power(x1, b1) + a2/W/np.power(x2, b2))
+# def gfunc(x1: np.ndarray, x2: np.ndarray) -> np.ndarray:
+#   a1 = 2
+#   a2 = 60
+#   b1 = 0.5
+#   b2 = 2
+#   L = 1
+#   W = 1
+#   return 1/(a1/L/np.power(x1, b1) + a2/W/np.power(x2, b2))
 
-gpiecewise = Piecewise2DConvex(
-  func=gfunc,
-  xvalues=np.linspace(0.01, 20, 20),
-  yvalues=np.linspace(0.01, 20, 20),
-)
+# gpiecewise = Piecewise2DConvex(
+#   func=gfunc,
+#   xvalues=np.linspace(0.01, 20, 20),
+#   yvalues=np.linspace(0.01, 20, 20),
+# )
 
 # fig = gpiecewise.plot_samples()
 # fig.show()
@@ -115,7 +141,6 @@ gpiecewise = Piecewise2DConvex(
 # fig.savefig("imgs/iwasa1984_hull_upper.pdf", bbox_inches='tight')
 
 
-# gpiecewise.plot_full_comparison()
 
 
 # p = Iwasa2000_shoot_root_balance()
