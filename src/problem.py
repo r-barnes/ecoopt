@@ -102,6 +102,15 @@ class Problem:
     if name in self.parameters:
       raise RuntimeError(f"The variable {name} is already a parameter!")
 
+  def __getitem__(self, name: str):
+    if name in self.vars:
+      return self.vars[name]
+    if name in self.controls:
+      return self.controls[name]
+    if name in self.parameters:
+      return self.parameters[name]
+    raise RuntimeError(f"The variable {name} is not a time-var, control, or parameter!")
+
   def _time_shape(self) -> Tuple[int ,...]:
     if self.years==1 and not self.seasonize:
       return (len(self.timeseries), )
