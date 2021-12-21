@@ -28,6 +28,6 @@ def Iwasa1989_multi_season(T: float = 100.0, years: int = 8, dt: float=0.5) -> P
     if n < p.years-1:
       p.constraint(S[n+1, 0] == γ * (S[n,-1] - R[n]))
 
-  optval = p.solve(Maximize(p.time_discount("R", 0.85)), solver="ECOS")
+  p.objective(Maximize(p.time_discount("R", 0.85)))
 
   return p

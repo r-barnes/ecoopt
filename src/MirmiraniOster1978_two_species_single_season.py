@@ -39,7 +39,9 @@ def MirmiraniOster1978_TwoSpeciesSingleSeason(T: float = 10.0, dt: float = 0.1) 
     p.constrain_control_sum_at_time(u1, P1[ti], ti)
     p.constrain_control_sum_at_time(u2, P2[ti], ti)
 
+  p.objective(Maximize(p.vars["S1"][-1]))
+
   # The problem here is figuring what to optimize and how to find an ESS with linear programming?
-  # status, optval = p.solve(Maximize(p.vars["S1"][-1]), solver="ECOS", verbose=True)
+  status, optval = p.solve(solver="ECOS", verbose=True)
 
   return p

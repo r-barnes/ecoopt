@@ -84,6 +84,8 @@ class Problem:
     self.parameters: Dict[str, cp.Parameter] = {}
     self.timeseries: np.ndarray = ts
     self.dt: float = dt
+    self._objective = None
+    self._compiled = None
 
     if years<=0:
       raise RuntimeError("Seasons must be >0!")
@@ -228,6 +230,10 @@ class Problem:
         var[t+1] == var[t] + self.dt * rhs
       )
 
+  def objective(self, objective) -> None:
+    self._compiled = None
+    self._objective = objective
+
   def constraint(self, constraint: Constraint) -> None:
     self.constraints.append(constraint)
 
@@ -342,13 +348,22 @@ class Problem:
     elif status == "unbounded_inaccurate":
       raise RuntimeError("Problem was unbounded and inaccurate!")
 
+  def compile(self):
+    assert (objective := self._objective) is not None
+    print("Compiling problem...")
+    return cp.Problem(objective, self.constraints)
+
   def solve(
     self,
-    objective,
     solver: str = "CBC",
+    recompile: bool = False,
     **kwargs: Any,
   ) -> Tuple[Union[str,None],float]:
-    problem = cp.Problem(objective, self.constraints)
+    if recompile or self._compiled is None:
+      problem = self.compile()
+      self._compiled = problem
+    else:
+      problem = self._compiled
 
     print("Problem is DCP?", problem.is_dcp())
 
