@@ -13,8 +13,8 @@ def MirmiraniOster1978(T: float = 8.0, dt: float = 0.05) -> Problem:
   P = p.add_time_var("P", lower_bound=0, initial=P0)
   S = p.add_time_var("S", lower_bound=0, initial=0)
 
-  for ti in p.time_indices():
-    p.constrain_control_sum_at_time(u, P[ti], ti)
+  for _, ti in p.time_indices():
+    p.constrain_control_sum_at_time(u, ti,  P[ti])
     p.dconstraint(P, ti, rhat   * u[ti,0] - μ * P[ti])
     p.dconstraint(S, ti, rtilde * u[ti,1] - ν * S[ti])
 

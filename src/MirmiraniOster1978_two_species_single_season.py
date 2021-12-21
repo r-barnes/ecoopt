@@ -36,8 +36,8 @@ def MirmiraniOster1978_TwoSpeciesSingleSeason(T: float = 10.0, dt: float = 0.1) 
     p.dconstraint(S1, ti, dsdt[0])
     p.dconstraint(S2, ti, dsdt[1])
 
-    p.constrain_control_sum_at_time(u1, P1[ti], ti)
-    p.constrain_control_sum_at_time(u2, P2[ti], ti)
+    p.constrain_control_sum_at_time(u1, ti, P1[ti])
+    p.constrain_control_sum_at_time(u2, ti, P2[ti])
 
   p.objective(Maximize(p.vars["S1"][-1]))
 

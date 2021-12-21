@@ -416,11 +416,25 @@ class Problem:
   def constrain_control_sum_at_time(
     self,
     control: Variable3D,
+    t: Union[int, Tuple[int, int]],
     sum_var: Expression,
-    t: int,
-    n: int = 0
   ) -> None:
-    self.constraint(cp.sum(control[n, t, :]) <= sum_var) #TODO: Should this be == or <= ?
+    """[TODO]
+
+    Args:
+        control (Variable3D): [TODO]
+        t: Is either a time index or a (year, time index) tuple
+        sum_var (Expression): [TODO]
+
+    Raises:
+        RuntimeError: [TODO]
+    """
+    if isinstance(t, int):
+      self.constraint(cp.sum(control[0, t, :]) <= sum_var) #TODO: Should this be == or <= ?
+    elif isinstance(t, tuple):
+      self.constraint(cp.sum(control[t[0], t[1], :]) <= sum_var) #TODO: Should this be == or <= ?
+    else:
+      raise RuntimeError("Bad type for 't'!")
 
   def add_sos2_constraint(self, x: Variable) -> None:
     # TODO: From https://www.philipzucker.com/trajectory-optimization-of-a-pendulum-with-mixed-integer-linear-programming/
