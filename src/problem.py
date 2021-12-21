@@ -338,7 +338,7 @@ class Problem:
       val = np.vstack([var[n,:,:].value for n in range(self.years)])
       if norm_controls:
         val[val<1e-3] = 0
-        val = normalize(val, axis=1, norm='l2')
+        val = normalize(val, axis=1, norm='l1')
       for ci in range(val.shape[1]):
         axs[1].plot(full_times, val[:,ci], label=f"{name}_{ci}")
     fig.legend()
