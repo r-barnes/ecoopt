@@ -162,10 +162,12 @@ class Problem:
   ) -> Variable:
     assert name not in self.vars
 
+    is_pos = lower_bound is not None and lower_bound >= 0
+
     self.vars[name] = Variable(
       self.years,
       name=name,
-      pos=(lower_bound>=0) # cvxpy gains extra analysis powers if pos is used
+      pos=is_pos, # cvxpy gains extra analysis powers if pos is used
     )
     self.vars[name].ts_type = "year"
 
@@ -200,10 +202,12 @@ class Problem:
   ) -> Variable3D:
     assert name not in self.controls
 
+    is_pos = lower_bound is not None and lower_bound >= 0
+
     self.controls[name] = Variable3D(
       (self.years, len(self.timeseries), dim),
       name=name,
-      pos=(lower_bound>=0)
+      pos=is_pos,
     )
     self.controls[name].ts_type = "control"
 
