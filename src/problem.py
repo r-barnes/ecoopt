@@ -94,6 +94,14 @@ class Problem:
     self.years = years
     self.seasonize = seasonize
 
+  def _assert_unique_name(self, name: str) -> None:
+    if name in self.vars:
+      raise RuntimeError(f"The variable {name} is already a time-var!")
+    if name in self.controls:
+      raise RuntimeError(f"The variable {name} is already a control-var!")
+    if name in self.parameters:
+      raise RuntimeError(f"The variable {name} is already a parameter!")
+
   def _time_shape(self) -> Tuple[int ,...]:
     if self.years==1 and not self.seasonize:
       return (len(self.timeseries), )
@@ -128,7 +136,7 @@ class Problem:
     Returns:
         [type]: [description]
     """
-    assert name not in self.vars
+    self._assert_unique_name(name)
 
     is_pos = lower_bound is not None and lower_bound >= 0
 
@@ -160,7 +168,7 @@ class Problem:
     upper_bound: Optional[float] = None,
     anchor_last: bool = False
   ) -> Variable:
-    assert name not in self.vars
+    self._assert_unique_name(name)
 
     is_pos = lower_bound is not None and lower_bound >= 0
 
@@ -183,7 +191,7 @@ class Problem:
     return self.vars[name]
 
   def add_parameter(self, name: str, value: Optional[Union[float, np.ndarray]] = None) -> cp.Parameter:
-    assert name not in self.parameters
+    self._assert_unique_name(name)
 
     if isinstance(value, np.ndarray):
       self.parameters[name] = cp.Parameter(shape=value.shape, name=name)
@@ -200,7 +208,7 @@ class Problem:
     lower_bound: Optional[float] = None,
     upper_bound: Optional[float] = None,
   ) -> Variable3D:
-    assert name not in self.controls
+    self._assert_unique_name(name)
 
     is_pos = lower_bound is not None and lower_bound >= 0
 
