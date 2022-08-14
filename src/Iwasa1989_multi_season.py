@@ -1,6 +1,8 @@
 from .problem import Maximize, Problem
 
-def Iwasa1989_multi_season(T: float = 100.0, years: int = 8, dt: float=0.5) -> Problem:
+def Iwasa1989_multi_season(
+  T: float = 100.0, years: int = 8, dt: float=0.5
+) -> Problem:
   p = Problem(tmin=0.0, tmax=T, desired_tstep=dt, years=years, seasonize=True)
 
   a  = p.add_parameter("a", value = 0.2)

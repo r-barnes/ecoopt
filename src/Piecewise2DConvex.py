@@ -3,7 +3,7 @@
 import concurrent.futures as future
 import itertools
 from scipy.spatial import ConvexHull
-from typing import Any, Callable, Final, List, Optional, Tuple
+from typing import Any, Callable, List, Tuple
 from cvxpy.constraints.constraint import Constraint
 from cvxpy.expressions.variable import Variable
 

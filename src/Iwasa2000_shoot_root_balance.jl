@@ -16,7 +16,9 @@ function gfunc(x1::Vector{Float64}, x2::Vector{Float64})::Vector{Float64}
 end
 
 # Form an N x 2 matrix of sample points
-pts = vec(collect.(Iterators.product(LinRange(0.01,100,80), LinRange(0.01,100,80))));
+pts = vec(collect.(
+  Iterators.product(LinRange(0.01,100,80), LinRange(0.01,100,80))
+));
 pts = reduce(hcat, pts)';
 # Get values of `gfunc at these points`
 zz = gfunc(pts[:,1], pts[:,2]);
@@ -26,7 +28,9 @@ hull_pts = hcat(pts,zz);
 
 # Build the model
 dt=0.8;
-model = Model(with_optimizer(ECOS.Optimizer, maxit=10000, feastol=1e-4, reltol=1e-3, abstol=1e-3));
+model = Model(with_optimizer(
+  ECOS.Optimizer, maxit=10000, feastol=1e-4, reltol=1e-3, abstol=1e-3
+));
 timeseries = LinRange(0.0, 153.0, Int(round((153.0-0.0)/dt)));
 
 N = length(timeseries);
@@ -47,7 +51,9 @@ good_facets = hull.facets[hull.facets[:,3].>0,:];
 
 for ti in 1:(N-1)
   for f in eachrow(good_facets)
-    @constraint(model, f[1] * X1[ti] + f[2] * X2[ti] + f[3] * g[ti] + f[4] <= 0);
+    @constraint(
+      model, f[1] * X1[ti] + f[2] * X2[ti] + f[3] * g[ti] + f[4] <= 0
+    );
   end
   @constraint(model, sum(u[ti,:])==g[ti]);
   @constraint(model, X1[ti+1] == X1[ti] + dt * u[ti, 1]);
