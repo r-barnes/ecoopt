@@ -5,9 +5,13 @@
 
 % TODO: Make sure Greek characters are showing
 
+% TODO: Marissa question: My aloe plant is blooming! And reproducing! I haven't really figured out how they work yet... in particular, it seems perfectly capable of asexual reproduction as evidenced by the three pups appearing in the soil... so what are the flowers for?
+
 \usepackage[hidelinks]{hyperref}
 
+\usepackage{amsmath}
 \usepackage{fullpage}
+\usepackage{inconsolata}
 \usepackage{graphicx}
 \usepackage{minted}
 \usepackage[sort&compress,numbers]{natbib}
@@ -16,7 +20,10 @@
 \usepackage{pgfplots}
 \usepackage{verbatim}
 
+\setmonofont{Noto Sans Mono}
+
 \pgfplotsset{compat=1.17}
+\usetikzlibrary{patterns}
 
 \renewcommand{\sectionautorefname}{\textsection}
 \renewcommand{\subsectionautorefname}{\textsection}
@@ -43,23 +50,31 @@
 
 \tableofcontents
 
-An organism's life history is the sequence of events related to survival and reproduction that occur from birth through death. Considered another way, an organism's life history is the time series of how it allocates energy over its lifespan. We expect that, on average, the allocations an organism makes are shaped over evolutionary time to maximize reproductive fitness.
+\section{Introduction}
 
+An organism's life history is the sequence of events related to survival and reproduction that occur from birth through death. Considered another way, an organism's life history is the time series of how it allocates energy and resources over its lifespan. We expect that allocation strategies of an organism are shaped by evolution to maximize reproductive fitness.
+
+%TODO: Move away from policy function language
+%TODO: X is everything the organism knows and is
+%TODO: "current allocations and antitipcated needs" might need to be grouped better
 In modeling life history, we would like to recover a policy function $\pi(X,t)$ which, given the organism's current allocations and anticipated future needs $X$, determines how incoming energy at time $t$ should be allocated. Finding such a function is challenging and the field has typically relied on optimal control theory and applications of Pontryagin's maximum principle to do so. This has required increasing mathematical sophistication over time~\citep{mirmirani_competition_1978, iwasa_optimal_1989, pugliese_optimal_1990, mironchenko_optimal_2014}. This paper recasts previous theory in the form of convex optimization problems which can be solved numerically. This has several advantages:
 \begin{itemize}
 \item Lower barriers to entry. Applying optimal control theory requires significant mathematical sophistication. This barrier to entry makes it unnecessarily challenging for ecologists to include theory in their work.
 \item Faster ideation and exploration. Even for those who have mastered the techniques of optimal control theory, applying it to a particular case can still be time-consuming and seemingly simple modifications to a model can rapidly move it into the realm of intractibility. The techniques here make it easy to investigate model variants quickly.
 \item Powerful solvers. The techniques presented here rely on a powerful toolbox of solvers which can quickly find optimal numerical solutions to even large problems. This means that instantiating seemingly complex problems in computer code is easy, even for beginners.
+\item Guarantees. Most of the examples in this paper translate life history problems defined by differential equations into convex optimization problems. The solvers for these problems have several desirable properties. (1)~If a problem is non-convex, the solver can detect this and refuses to attempt a solution. (2)~If the problem is convex the solver is guaranteed to either find the optimal solution or return a certificate that the problem is either unbounded (arbitrarily good solutions are possible) or infeasible (no solution is possible).
 \end{itemize}
 
-The paper is laid out as follows.
-\begin{itemize}
-\item \autoref{sec:mathprog} lays out the framework of mathematical programming.
-\item \autoref{sec:problems} presents a menagerie of problems TODO
-\item TODO
-\end{itemize}
+% The paper is laid out as follows.
+% \begin{itemize}
+% \item \autoref{sec:mathprog} lays out the framework of mathematical programming.
+% \item \autoref{sec:problems} presents a menagerie of problems TODO
+% \item TODO
+% \end{itemize}
 
 
+%TODO: Make sure capitalization is consistent
+%TODO: Is it good to have acronyms in ToC, but (LP), (CP) in
 
 \section{Mathematical Programming}
 \label{sec:mathprog}
@@ -70,22 +85,158 @@ The paper is laid out as follows.
 \caption{The hierarchy of convex programming showing Linear Programming (LP), Quadratic Programming (QP), Second-Order Cone Programming (SOCP), Semi-definite Programming (SDP), and Convex Programming (CP). \label{fig:hierarchy}}
 \end{figure}
 
-The basic idea behind \textit{mathematical programming} is that we will specify an \textit{objective function} whose value we wish to minimize (or maximize) by setting the values of a set of \textit{decision variables} whose values are subject to \textit{constraints} which combine the decision variables and \textit{parameters} using standard mathematical functions and either inequalities ($<,\le,\ge,>$) or equalities ($=$). Once the objective and constraints have been specified, we can pass the problem off to software to determine the optimal values.
+The basic idea behind \textit{mathematical programming} is that we will specify an \textit{objective function} whose value we wish to minimize (or maximize) by finding the best values of a set of \textit{decision variables} whose values are subject to \textit{constraints} which combine the decision variables and \textit{parameters} (fixed numeric values which may vary from one instance of the problem to the next) using standard mathematical functions and either inequalities ($<,\le,\ge,>$) or equalities ($=$). Once the objective and constraints have been specified, we can pass the problem off a powerful software program called a solver which determines the optimal values of the decision variables.
 
-Unfortunately, except for special cases, solving such problems is extremely hard. Fortunately, the special cases are vast and include many problems of interest. We discuss some of them here moving from the most- to least-constrained problem space, as shown in \autoref{fig:hierarchy}.
+Unfortunately, except for special cases, solving mathematical programs is extremely hard. Fortunately, the special cases are vast and include many problems of interest. Below we discuss some special cases of interest here moving from the most- to least-constrained problem space, as shown in \autoref{fig:hierarchy}.
+
+\subsection{Linear Programming}
+
+The simplest case is \textit{linear programming}. In a linear program, the objective and every constraint consists of linear equations. \autoref{fig:graphical_linear} shows a graphical representation of a particular linear program described below and hints out how it might be solved.
+
+Imagine we have a plant whose reproductive success is determined by the biomass of its roots and leaves. The plant's goal is to grow so that the amount of root and leaf biomass it has maxmizes its reproductive output. The particular amounts of biomass it produces are its strategy.
+
+\begin{figure}
+  \centering
+  \begin{tikzpicture}
+    \begin{scope}
+      \shade[right color=green, left color=white, opacity=0.7] (-0.5,-0.5) rectangle (0,6.5);
+      \node[rotate=90, above] at (0,3) {Non-Negative Roots};
+      \shade[top color=yellow, bottom color=white, opacity=0.7] (-0.5,-0.5) rectangle (8.5,0);
+      \node[below] at (4,0) {Non-Negative Leaves};
+      \shade[left color=red, bottom color=red, right color=white, opacity=0.5] (-0.5,5.5) -- (8.5,3) -- (8.5,6.5) -- (-0.5,6.5) -- cycle;
+      \path (-0.5,5.5) -- node[pos=0.23, sloped, above] {Nitrogen Constraint} (8.5,3);
+      \shade[left color=blue, right color=white, opacity=0.5] (2.5,6.5) -- (8.5,6.5) -- (8.5,0) -- (5,0) -- cycle;
+      \path (5,0) -- node[pos=0.3, sloped, above] {Phosphorus Constraint} (2.5,6.5);
+      \node[text width=7em, align=center] at (2,2) {Feasible Region of the Linear Program};
+      \draw[->] (-0.5,0) -- (8.5,0) node[below] {Root biomass};
+      \draw[->] (0,-0.5) -- (0,6.5) node[above] {Leaf biomass};
+      \node[rotate=-45, above, text width=9em, align=center] at (7.25,5.25) {Level Curves of the Objective Function};
+      \node[above, text width=9em, align=center] at (0.5,-1) {v=0};
+      \node[above, text width=9em, align=center] at (3,-1) {v=3};
+      \node[above, text width=9em, align=center] at (5.5,-1) {v=6};
+      \node[above, text width=9em, align=center] at (8,-1) {v=9};
+      \path[clip] (-0.5,-0.5) rectangle (8.5,6.5);
+      \foreach \i in {0.5,3,...,13} {
+        \draw[help lines] (-0.5,\i) -- +(-45:15);
+      }
+    \end{scope}
+  \end{tikzpicture}
+  \caption{A graphical representation of a linear program.\label{fig:graphical_linear}}
+  \end{figure}
+
+If we were to plot aspects of this plant, we could do so by putting root biomass ($R$) on the x-axis and leaf biomass on the y-axis ($L$). With no further information, the space of possible solutions therefore spans the entire R-L plane. Obviously, though, no part of our plant cannot have negative biomass, so we add the constraints $R\ge0$ and $L\ge0$. This rules out three quadrants of the plane, which we indicate by adding green and yellow shading to \autoref{fig:graphical_linear}. The best strategy for our plant, whatever it is, must lie in the upper right quadrant. Now, let us say that a plant requires phosphorus $P$ to produce its leaves and roots and that the phosphorus requirements of the two differ; this implies the constraint $aR+bL\le P$. This constraint rules out any solution in the blue-shaded region. A similar constraint might apply to nitrogen, ruling out solutions in the red-shaded region.
+
+Having come this far, we now have a clearly defined \textit{feasible region}, shown in white in \autoref{fig:graphical_linear}. The best strategy of the plant must lie somewhere in this region because any strategy outside of it would violate at least one constraint.
+
+Finally, let us say that reproductive output, formally known as the objective function, is some linear function $cR+bL$ of leaf and root biomass---if this seems overly simplistic, remember, this is an example to illustrate mathematics, not a model we are actually interested in using. If we consider the level curves of the objective function---the lines obtained in \autoref{fig:graphical_linear} by taking $cR+bL=0$, $cR+bL=3$, and so on---we see that they define both a gradient and intersect the constraints.
+
+With some reflection, we can see that the maximum value of the objective function must occur at the intersection of two or more constraints. It is obvious from the picture that the objective value cannot have a maximum value in the interior of the feasible region since it has a gradient there and any point in the interior is adjacent to another interior or boundary point that would be farther along this gradient. Therefore, we know the objective is maximized on the boundary. The isolines of the objective could be exactly parallel to one of the boundary segments, but, in this case, both end points of the segment will have the same objective value and we can choose on arbitrarily.
+
+%https://upload.wikimedia.org/wikipedia/commons/d/d4/Simplex-method-3-dimensions.png
+\begin{figure}
+\centering
+\includegraphics[width=3in]{imgs/Simplex-method-3-dimensions.png}
+\caption{The simplex method in three dimensions.\label{fig:simplex}}
+\end{figure}
+
+This implies a simple algorithm for solving linear programs: find any vertex on the boundary, consider vertices linked to it by constraints, move to the vertex with the highest objective value, and repeat until no neighbouring vertex is better than the one you're at. As shown in \autoref{fig:simplex}, in higher dimensions the feasible region is bounded by planes or hyperlanes and the feasible region, rather than being a polygon, is called a polytope. Still, the algorithm is the same: find a vertex and walk along edges until the best vertex is found.
+
+The algorithm described above is called the \textit{simplex algorithm}. Interestingly, while it is known that all linear programs can be solved efficiently (ie, in polynomial time) using another technique called the ellipsoidal algorithm, there are problems for which the simplex algorithm will perform very badly. In practice, however, these problems are rare and must be deliberately constructed. It's been said that at one point more compute power was devoted to running the simplex algorithm than any other program---a testament both to the practical value of the algorithm as well as linear programming itself.
+
+
+\subsection{Convex Programming}
+\label{sec:convex_programming}
+
+\begin{figure}
+\centering
+\begin{tabular}{cc}
+\includegraphics[height=1in]{imgs/potato.jpg} &
+\includegraphics[height=1in]{imgs/banana.png}
+\end{tabular}
+\caption{Examples of a convex space (a potato) and a non-convex space (a banana).\label{fig:convexfoods}}
+\end{figure}
+
+As \autoref{fig:convexfoods} shows, the mathematical difference between a potato and a banana is that the potato is convex whereas the banana is non-convex; that is, any two points within the potato can be connected with a line which does not pass outside of the potato. In contrast, the banana contains points which can only be connected by a line passing outside of the banana.
+
+Some reflection on our linear programming example reveals that the feasible region of a linear program is always a convex polytope. This is not an accident. If we draw isolines over a banana-shaped region, we find vertices of equal value that cannot be reached from each other. In such a situation the simplex algorithm no longer works and we have entered the \textit{much} harder-to-solve space of non-convex programming. While every convex problem is, in some sense, the same, each non-convex problem is non-convex in its own way. %TODO: Is this a good place for this?
+
+Convexity is key to efficient mathematical programming. Since the intersection of two convex sets is itself a convex set, we can compose convex objects to form feasible spaces with properties that make them amenable to efficient maximization. Unfortunately, we don't know efficient solution algorithms for all convex objects, so in practice we often have to find a way to re-express our problems using convex forms that we know.
+
+Classes for which we do have efficient algorithms in include:
+\begin{itemize}
+\item \textit{Linear programs (LP)}, as above.
+\item \textit{Quadratic programs (QP)}, which includes linear programming as a special case, and is the class of all programs with linear constraints and an objective function of the form $\frac{1}{2}x^T Q x + q^T x$ where $Q$ is a constant matrix, $q$ is a constant vector, and $x$ is a vector variable.
+\item \textit{Quadratically constrained quadratic programs (QCQP)}, which are similar to quadratic programs, but may include quadratic constraints.
+\item \textit{Second-order cone programs (SOCP)}, which can have linear or quadratic objectives and constraints of the form $\lVert Ax+b\rVert_2 \le cx+d$, where $A$ is a constant matrix, $b$ and $c$ are constant vectors, $d$ is a constant, and $x$ is a variable vector.
+\item \textit{Semi-definite programs (SDP)} where we wish to find a positive semi-definite matrix that satisfies an objective and constraints.
+\item \textit{Relative Entropy Programming (EXP)}, a subset of cone programming (CP) containing SOCPs defined by constraints of the form $ye^{xy}\le z, y>0$. See \citet{Chandrasekaran2017} for an overview.
+\item \textit{Power Cone Programming (POW)}, defined by constraints of the form $\prod_i x_i^{\alpha_i} \ge \sqrt{\sum_i x_i^2}, x_i\ge0$. %TODO: Find an overview Look at examples here: https://docs.mosek.com/modeling-cookbook/powo.html
+\item \textit{Geometric Programming (GP)}, geometric programming is defined by an objective $f_0(x)$ and constraints $f_i(x)\le1$ and $g_j(x)=1$ where $f$ are posynomials and $g$ are monomials. Monomials take the form $c x_1^{a_1} x_2^{a_2}\ldots$ with $c>0$ and $a_i\in\mathcal{R}$. Posynomials are sums of monomials. A good review of geometric programming is given by \citet{Boyd2007}.
+%\item \textit{Quasi-convex programming}, TODO
+\end{itemize}
+
+As detailed below, LPs are the easiest and fastest programs to solve and can include millions of variables and constraints. QP and QCQP programs are harder, so the programs we can solve with them are smaller. SOCP is harder still, but still very do-able using even free software, though the size of the programs we can solve is somewhat smaller. SDPs, EXP, and POW are active areas of research and even relatively small problems can be difficult.
+
+The most exotic programs we'll use in this paper are SOCPs. %TODO: Check this
+
+\subsection{Mixed-Integer Programming}
+
+Integer programming (IP) arises when an optimization problem has one or more variables which are constrained to take only integer values. When such variables are mixed with continuous linear variables we have Mixed-Integer Linear Programming (MILP). If second-order cones are involved, then we have a MISOCP. The general class of such problems---those with both discrete and continuous variables---is called mixed-integer programming (MIP).
+
+Integer programming belongs to a class of problems called NP for which there are no known efficient algorithms and for which many people think there will \textit{never} be efficient algorithms. Nonetheless, many solvers are able to solve small instances of integer problems, but often only at the cost of substantial compute time. In this paper we try to avoid MIPs when we can or limit the number of discrete variables when we can't. %TODO: Check this
+
+\subsection{Solvers}
+
+\begin{table}
+\centering
+\begin{tabular}{l|c|c|c|c|c|c|c|l}
+Solver & LP  & QP  & SOCP & SDP & EXP & POW & MIP & Cost \\
+CBC\footnote{\url{https://projects.coin-or.org/Cbc}}                                                                          & X   &     &      &     &     &     & X   & Free \\
+GLPK\footnote{\url{https://www.gnu.org/software/glpk/}}                                                                       & X   &     &      &     &     &     &     & Free \\
+GLPK\_MI\footnote{\url{https://www.gnu.org/software/glpk/}}                                                                   & X   &     &      &     &     &     & X   & Free \\
+OSQP\footnote{\url{https://osqp.org/}}                                                                                        & X   & X   &      &     &     &     &     & Free \\
+CPLEX\footnote{\url{https://www-01.ibm.com/software/commerce/optimization/cplex-optimizer/}}                                  & X   & X   & X    &     &     &     & X   & Free for Academics, \$199/mo \\
+NAG\footnote{\url{https://www.nag.co.uk/nag-library-python/}}                                                                 & X   & X   & X    &     &     &     &     & \\
+ECOS\footnote{\url{https://www.embotech.com/ECOS}}                                                                            & X   & X   & X    &     & X   &     &     & Free \\
+GUROBI\footnote{\url{http://www.gurobi.com/}}                                                                                 & X   & X   & X    &     &     &     & X   & Free for Academics, \$\$ \\
+MOSEK\footnote{\url{https://www.mosek.com/}}                                                                                  & X   & X   & X    & X   & X   & X   & X$^*$ & \$2,050 + \$512/yr\\
+CVXOPT\footnote{\url{http://cvxopt.org/}}                                                                                     & X   & X   & X    & X   &     &     &     & Free \\
+SCS\footnote{\url{http://github.com/cvxgrp/scs}}                                                                              & X   & X   & X    & X   & X   & X   &     & Free \\
+SCIP\footnote{\url{https://scip.zib.de/}}                                                                                     & X   & X   & X    &     &     &     & X   & Free \\
+XPRESS\footnote{\url{https://www.fico.com/en/products/fico-xpress-optimization}}                                              & X   & X   & X    &     &     &     & X   & Free for Academics, \$\$ \\
+\end{tabular}
+\caption{Solvers for mathematical programming and their capabilities. (*) Except mixed-integer SDP.\label{tbl:solvers}}
+\end{table}
+%(From [CVXPY documentation](https://www.cvxpy.org/tutorial/advanced/index.html#choosing-a-solver))
+
+
+\autoref{tbl:solvers} lists various open source and commercial solvers. As discussed in \autoref{sec:convex_programming}, there is a gradient to the ease with which problems can be solved. Even large instances of linear programs can be solved for free by any of a large variety of software. In constrast, if we wish to solve an MISOCP problem, the only free options are SCIP, XPRESS, and CPLEX. Obtaining a CPLEX academic license is challenging and SCIP is brutally slow for this sort of problem, leaving XPRESS as the only viable option. In this paper, we focus on classes of problems for which good solvers are available.
+
+\subsection{Domain Specific Languages}
+
+Domain Specific Languages (DSLs) are programming languages or libraries that are designed to make expressing a particular type of problem easier. All of the solvers mentioned above have their own DSL, but using the solver's DSL directly means you're stuck with that solver even if it turns out not to work well for your particular problem. Fortunately, there are DSLs which allow you to express problems in such a way that they are easily passed to \textit{any} solver. In this paper we will use two DSLs both for practical purposes (sometimes one works better than the other) as well as to demonstrate the generic nature of the methods we discuss.
+\begin{itemize}
+\item \textbf{cvxpy} (\url{https://www.cvxpy.org/}) is a Python-based DSL used for expressing convex and MIP programs. It's easy to use and provides helpful feedback on whether or not programs are convex and, if not, where the non-convexity has arisen. It has a large developer community and strong ties to academic research groups who regularly add new features to it.
+\item \textbf{JuMP} (\url{https://jump.dev/JuMP.jl/stable/}) is a Julia-based DSL used for expressing arbitrary mathematical programs, including convex and MIP. It has a somewhat steeper learning curve than cvxpy, but with the advantage of being able to handle much larger programs than cvxpy.
+\end{itemize}
+
+%TODO: Suspicious of most front-end and academic software - short lifespans, small communities.
+
+%\subsection{Forward Euler}
+%TODO
 
 
 
-The basic idea behind \textit{convex programming} is that if our objective and constraints all consist of convex functions, then the resulting problem can almost always be solved reliably and quickly. If the problem is non-convex, then even powerful software may be unable to find a good answer in a reasonable amount of time.
+%The basic idea behind \textit{convex programming} is that if our objective and constraints all consist of convex functions, then the resulting problem can almost always be solved reliably and quickly. If the problem is non-convex, then even powerful software may be unable to find a good answer in a reasonable amount of time.
 
 %TODO: Tutorial on convex programming http://www.ece.ubc.ca/~janm/Papers_RG/Hindi_ConfAC_Jul04.pdf
 
-A convex function $f(x)$ is any function having the property that a line originating anywhere within the domain bounded by the function can reach any other point without passing outside of the domain. A (idealized) potato is a convex function; a banana is not.
+%A convex function $f(x)$ is any function having the property that a line originating anywhere within the domain bounded by the function can reach any other point without passing outside of the domain. A (idealized) potato is a convex function; a banana is not.
 
-If we consider the simplest convex case---linear programming---the intuition becomes clear. In such a problem the potato is constructed of intersecting Euclidean planes. Since we are constraining ourselves to convex situations, the potato does not have any divets. The objective function can be thought of as a series of isolines along each of which the objective function has a constant value even as the decision variables change. With some thought, you can see that there is a maximum to the objective function which occurs on an isoline tangent the potato, though more than one set of values for the decision variables might yield this maximum. A simple procedure---known as the simplex method---for finding this maximum is to:
-(1)~find a vertex at the intersection of the planes defining the potato,
-(2)~consider all neighbouring vertices and move to the one with the highest objective value,
-(3)~repeated step (2) until no vertex has a higher objective---this is the maximum.
+%If we consider the simplest convex case---linear programming---the intuition becomes clear. In such a problem the potato is constructed of intersecting Euclidean planes. Since we are constraining ourselves to convex situations, the potato does not have any divets. The objective function can be thought of as a series of isolines along each of which the objective function has a constant value even as the decision variables change. With some thought, you can see that there is a maximum to the objective function which occurs on an isoline tangent the potato, though more than one set of values for the decision variables might yield this maximum. A simple procedure---known as the simplex method---for finding this maximum is to:
+%(1)~find a vertex at the intersection of the planes defining the potato,
+%(2)~consider all neighbouring vertices and move to the one with the highest objective value,
+%(3)~repeated step (2) until no vertex has a higher objective---this is the maximum.
 
 \section{Life History Problems}
 \label{sec:problems}
@@ -139,12 +290,21 @@ From \autoref{sec:mathprog}, we recognize this as an LP and therefore know that 
 
 Solving this gives the result shown in \autoref{fig:MirmiraniOster1978_single_season}. The growth pattern of the plant shows that initially all growth is allocated to the vegetative tissue with a smooth transition to vegetative tissue later in the growing season. The plant's vegetative tissue begins to decline in mass at that point due to the non-zero value of $\mu$ indicating tissue senescence or predation. %TODO: Why does our control pattern differ from Mirmirani's?
 
-
 \begin{figure}
 \centering
 \includegraphics[width=4in]{imgs/MirmiraniOster1978_single_season.pdf}
 \caption{The result of evaluating the model described in \autoref{sec:mirmirani1978-single} with parameter values $\hat{r}=0.5, \tilde{r}=0.2, \mu=0.1, \nu=0.1, T=8.0, P_0=0.05$. \label{fig:MirmiraniOster1978_single_season}}
 \end{figure}
+
+\subsection{Recovering the control}
+\label{sec:control_recover}
+In \autoref{sec:mirmirani1978-single} we changed the control from a multiplicative to an additive operation in order to form a convex problem. For making control plots such as those shown in \autoref{fig:MirmiraniOster1978_single_season} it is useful to map the control back to the range $[0,1]$ by taking
+\begin{equation}
+\begin{aligned}
+\hat u_{1,t} &= \frac{u_{1,t}}{\sum_i u_{i,t}} = \frac{u_{1,t}}{\lVert u_{*,t} \rVert_1}  ~~\forall t
+\end{aligned}
+\end{equation}
+
 
 %TODO: They, Mirmirami et al, also have competiting plants! And multi-season stuff!
 
@@ -187,7 +347,10 @@ While the mathematics here may seem complex, the simple Python-based modeling la
 
 \inputminted[firstline=3,frame=single,linenos]{python}{src/Iwasa2000_when_flower.py}
 
+% TODO: Philosophy of science paper. r-K selection, adding things makes them complicated. when do models get so complex you can't understand them?
 
+% TODO: Make sure axes are labeled
+% TODO: Try to make colours mean something
 \begin{figure}
   \centering
   \includegraphics[width=4in]{imgs/iwasa2000_when_flower.pdf}
@@ -388,53 +551,6 @@ Solving this gives the result shown in \autoref{fig:iwasa1989-multi}. The growth
 
 %TODO: Talk about and show three-phase and two-phase growth
 
-\subsection{Two Species Competing In A Single Season}
-
-%TODO: Better explain the motivation for the following equations
-
-\citet{mirmirani_competition_1978} explore two species competing in a single season. Let the biomass of the vegetative parts of the plants be $P_1$ and $P_2$, the biomass of the reproductive tissues $S_1$ and $S_2$, $E_1$ and $E_2$ the strength of the competitive interactions, and $r_1$ and $r_2$ are assimilation constants. The growth of the plants can then be modeled as (\citep[Eq.\ 4--1 -- 4--4]{mirmirani_competition_1978})
-\begin{align}
-\dot{P_1} &= (r_1-E_2 P_2) u_1 P_1 \\
-\dot{P_2} &= (r_2-E_1 P_1) u_2 P_2 \\
-P_1(0)      &=P_{1,0}>0 \\
-P_2(0)      &=P_{2,0}>0 \\
-r_1-E_2 P_2 &\ge 0 \\
-r_2-E_1 P_1 &\ge 0 \\
-\dot{S_1} &= (r_1-E_2 P_2) (1 - u_1) P_1 \\
-\dot{S_2} &= (r_2-E_1 P_1) (1 - u_2) P_2 \\
-S_1(0)&=0 \\
-S_2(0)&=0 \\
-u_1, u_2 & \in [0,1]
-\end{align}
-If we set $E=E_1=E_2$, $r=r_1=r_2$, and $P_0=P_{1,0}=P_{2,0}$ and then renormalize $P_1\rightarrow EP_1$ and $P_2\rightarrow EP_2$, then the equations simplify to (\citep[Eq.\ 4--4 -- 4--8]{mirmirani_competition_1978})
-\begin{align}
-  \dot{P_1} &= (r-P_2) u_1 P_1 \\
-  \dot{P_2} &= (r-P_1) u_2 P_2 \\
-  P_1(0)      &=P_{1,0}>0 \\
-  P_2(0)      &=P_{2,0}>0 \\
-  r-P_2 &\ge 0 \\
-  r-P_1 &\ge 0 \\
-  \dot{S_1} &= (r-P_2) (1 - u_1) P_1 \\
-  \dot{S_2} &= (r-P_1) (1 - u_2) P_2 \\
-  S_1(0)&=0 \\
-  S_2(0)&=0 \\
-  u_1, u_2 & \in [0,1]
-\end{align}
-Per usual, we add a dimension to the control variable:
-\begin{align}
-  \dot{P_1} &= (r-P_2) u_{1,1} \\
-  \dot{P_2} &= (r-P_1) u_{2,1} \\
-  P_1(0)      &=P_{1,0}>0 \\
-  P_2(0)      &=P_{2,0}>0 \\
-  r-P_2 &\ge 0 \\
-  r-P_1 &\ge 0 \\
-  \dot{S_1} &= (r-P_2) u_{1,2} \\
-  \dot{S_2} &= (r-P_1) u_{2,2} \\
-  S_1(0)&=0 \\
-  S_2(0)&=0 \\
-  u_{1,1} + u_{1,2} &= P_1 \\
-  u_{2,1} + u_{2,2} &= P_2
-\end{align}
 
 
 \subsection{Environmental Effects}
@@ -483,7 +599,7 @@ What is the effect of periodic vegetative tissue loss on an annual, as might be 
 $\omega(t)=$      & $0.05$                                      & $t / (1 + 0.5 t)$                 \\
 $\mu(t)=$         & $0.8 \lvert \cos(\frac{\pi}{12}t) \rvert$   & $1.8 \lvert \cos(\pi t) \rvert$   \\
 $g(x_3)=$         & $5x_3$                                      & $16x_3$                           \\
-$f(x_1)=$         & $1.5/(1+0.03x_1)$                           & $4/(1+0.03x_1)$                   \\
+$f(x_1)=$         & $1.5x/(1+0.03x_1)$                          & $4x/(1+0.03x_1)$                  \\
 Outcome           & Single reproductive period                  & Multiple reproductive periods
 \end{tabular}
 \end{center}
@@ -583,12 +699,112 @@ Contrast this with the the ``Pleasant'' and ``Very Pleasant'' environments, as s
 \end{figure}
 
 
+\begin{comment}
+\subsection{Two Species Competing In A Single Season}
 
-TODO: Discuss and demonstrate dual/shadow values for variables and constraints (can cvxpy show these?)
+%TODO: Better explain the motivation for the following equations
 
-TODO: Disciplined parameter programming (solve same problem many times quickly)
+\citet{mirmirani_competition_1978} explore two species competing in a single season. Let the biomass of the vegetative parts of the plants be $P_1$ and $P_2$, the biomass of the reproductive tissues $S_1$ and $S_2$, $E_1$ and $E_2$ the strength of the competitive interactions, and $r_1$ and $r_2$ are assimilation constants. The growth of the plants can then be modeled as (\citep[Eq.\ 4--1 -- 4--4]{mirmirani_competition_1978})
+\begin{align}
+\dot{P_1} &= (r_1-E_2 P_2) u_1 P_1 \\
+\dot{P_2} &= (r_2-E_1 P_1) u_2 P_2 \\
+P_1(0)      &=P_{1,0}>0 \\
+P_2(0)      &=P_{2,0}>0 \\
+r_1-E_2 P_2 &\ge 0 \\
+r_2-E_1 P_1 &\ge 0 \\
+\dot{S_1} &= (r_1-E_2 P_2) (1 - u_1) P_1 \\
+\dot{S_2} &= (r_2-E_1 P_1) (1 - u_2) P_2 \\
+S_1(0)&=0 \\
+S_2(0)&=0 \\
+u_1, u_2 & \in [0,1]
+\end{align}
+If we set $E=E_1=E_2$, $r=r_1=r_2$, and $P_0=P_{1,0}=P_{2,0}$ and then renormalize $P_1\rightarrow EP_1$ and $P_2\rightarrow EP_2$, then the equations simplify to (\citep[Eq.\ 4--4 -- 4--8]{mirmirani_competition_1978})
+\begin{align}
+  \dot{P_1} &= (r-P_2) u_1 P_1 \\
+  \dot{P_2} &= (r-P_1) u_2 P_2 \\
+  P_1(0)      &=P_{1,0}>0 \\
+  P_2(0)      &=P_{2,0}>0 \\
+  r-P_2 &\ge 0 \\
+  r-P_1 &\ge 0 \\
+  \dot{S_1} &= (r-P_2) (1 - u_1) P_1 \\
+  \dot{S_2} &= (r-P_1) (1 - u_2) P_2 \\
+  S_1(0)&=0 \\
+  S_2(0)&=0 \\
+  u_1, u_2 & \in [0,1]
+\end{align}
+Per usual, we add a dimension to the control variable:
+\begin{align}
+  \dot{P_1} &= (r-P_2) u_{1,1} \\
+  \dot{P_2} &= (r-P_1) u_{2,1} \\
+  P_1(0)      &=P_{1,0}>0 \\
+  P_2(0)      &=P_{2,0}>0 \\
+  r-P_2 &\ge 0 \\
+  r-P_1 &\ge 0 \\
+  \dot{S_1} &= (r-P_2) u_{1,2} \\
+  \dot{S_2} &= (r-P_1) u_{2,2} \\
+  S_1(0)&=0 \\
+  S_2(0)&=0 \\
+  u_{1,1} + u_{1,2} &= P_1 \\
+  u_{2,1} + u_{2,2} &= P_2
+\end{align}
 
-TODO: Failure modes (infinity when maximizing means unbounded)
+\end{comment}
+
+
+%TODO: Parameter sweeps
+
+%TODO: Discuss and demonstrate dual/shadow values for variables and constraints (can cvxpy show these?)
+
+%TODO: Disciplined parameter programming (solve same problem many times quickly)
+
+%TODO: Failure modes (infinity when maximizing means unbounded)
+
+
+\section{Inverse Problems}
+\label{sec:inverse_problem_mirmir}
+
+Given a noisy sampling of a timeseries can we recover the underlying system? To explore this, let's start with a system where we know the system. We'll use the simple single-season system described in \autoref{sec:mirmirani1978-single}.
+
+To make a noisy problem, we solve the single-season system, add normally distributed noise to one of the result variables, and then sample a few data points to get a vector of scalar values $P_\textrm{noise,sampled}$. Previously, our objective was to maximize the amount of seeds at the end of the season $\max S(T)$. Our new objective tries to match the system, as described by the vector of variables $P$, to the data. This gives us the objective
+\begin{equation}
+\min_u \lVert P_\textrm{noise,sampled} - P \rVert_2
+\end{equation}
+we can implement this as follows:
+\inputminted[firstline=12,lastline=26,frame=single,linenos]{python}{src/MirmiraniOster1978_inverse_problem.py}
+running this gives us the result shown in \autoref{fig:mirmir-fit}a.
+
+
+
+\begin{figure}
+  \centering
+  \begin{tabular}{ccc}
+    \includegraphics[width=3in]{imgs/Mirmirani_inverse_bad_fit.pdf} &
+    \includegraphics[width=3in]{imgs/Mirmirani_inverse_good_fit.pdf} \\
+    (a) & (b)
+  \end{tabular}
+  \caption{The result of solving the inverse problem described in \autoref{sec:inverse_problem_mirmir}. \textbf{(a)} shows the result when the inverse problem is solved without any constraints on the control variable. \textbf{(b)} shows the result when the inverse problem is solved with the control variable constrained to switch only two times. \label{fig:mirmir-fit}}
+\end{figure}
+
+The optimal solution of the system for this new least-squares objective is overfit: the system is able to follow the noise and sparsity of the data. However, we have a strong prior that the system has a bang-bang control. \citet{Burger2020} provides us a method for recovering the optimal bang-bang control strategy. First, we solve the problem with no constraints on the control. This gives us continuous-valued outputs for the controls. Second, we solve a \textit{combinatorial integral approximation} (CIA) problem. The inputs for this problem are the discretized timepoints which we used to approximation the differential equations and the values of the controls, mapped to the range $[0,1]$, resulting from the relaxed problem. The CIA problem allows us to specify constraints such as the number of times a control should switch from on to off. Since we have a prior expectation from \autoref{sec:mirmirani1978-single} that this should happen only once per growing season, we add that as a constraint. The result of solving the CIA problem is a set of bang-bang control values. Third, and finally, we solve our least-squares problem again, but this time with the constraint that the control must follow the bang-bang values we obtained from the CIA.
+
+These steps require some subtly since a key part step in the conversion from differential to convex forms so far has been manipulating the control from a multiplicative to an additive factor. \autoref{sec:control_recover} explains how to recover $[0,1]$ controls to get the input to the CIA. We then note that the control constraint for \autoref{sec:mirmirani1978-single} is
+\begin{equation}
+u_{1,t}+u_{2,t}=P_t~~\forall t
+\end{equation}
+If we call the bang-bang controls returned from the CIA $\hat u$, then the following additional constraints ensure that our system follows strategy prescribed by the CIA
+\begin{equation}
+\begin{aligned}
+u_{1,t}&=\hat u_{1,t} P_t~~\forall t \\
+u_{2,t}&=\hat u_{2,t} P_t~~\forall t
+\end{aligned}
+\end{equation}
+
+We can implement all this as follows:
+
+\inputminted[firstline=40,lastline=61,frame=single,linenos]{python}{src/MirmiraniOster1978_inverse_problem.py}
+
+As shown in \autoref{fig:mirmir-fit}, using the CIA least-squares approach allows us to recover almost exactly the original system.
+
 
 
 
@@ -596,12 +812,98 @@ TODO: Failure modes (infinity when maximizing means unbounded)
 \section{Techniques}
 \label{sec:techniques}
 
-\subsection{The Forward-Euler Method}
-\label{sec:euler}
+%\subsection{The Forward-Euler Method}
+%\label{sec:euler}
 
-TODO
+%TODO
 
 
+\subsection{Bilinear Constraints}
+
+%TODO: From http://minlp.cheme.cmu.edu/2014/papers/castro.pdf
+% Pedro M. Castro of Universidade de Lisboa seems to have put it together
+\begin{figure}
+\centering
+\includegraphics[width=4in]{imgs/piecewise_mccormick.pdf}
+
+\begin{tikzpicture}
+  \draw[-] (2*1,0) -- (2*4,0) ; % edit here for the axis
+  \foreach \x in  {1,2,3,4} % edit here for the vertical lines
+  \draw[shift={(2*\x,0)},color=black] (0pt,3pt) -- (0pt,-3pt);
+
+  \foreach \x in  {1,2,3} % edit here for the vertical lines
+  \node[above] at ({2*\x+2*0.5},0) {\footnotesize $n=\x$};
+
+  \foreach \x in  {1,2,3} % edit here for the vertical lines
+  \node at ({2*\x+2*0.5},-1) {\footnotesize $y_{j,1}=\textrm{true}$};
+  \node at ({2*5+2*0.5},-1) {\footnotesize $y_{j,N}=\textrm{true}$};
+  \node at (2*2,-1) {$\vee$};
+  \node at (2*3,-1) {$\vee$};
+  \node at (2*4,-1) {$\vee$};
+  \node at (2*4+2*0.5,-1) {.~~.~~.};
+  \node at (2*5,-1) {$\vee$};
+
+  \draw[-] (2*5,0) -- (2*6,0) ; % edit here for the axis
+  \foreach \x in {5,6} % edit here for the vertical lines
+  \draw[shift={(2*\x,0)},color=black] (0pt,3pt) -- (0pt,-3pt);
+
+  \foreach \x in {1,2,3,4} % edit here for the numbers
+  \draw[shift={(2*\x,0)},color=black] (0pt,0pt) -- (0pt,-3pt) node[below]
+  {$x_{j,\x}^L$};
+  \foreach \x in {1,2,3} % edit here for the numbers
+  \draw[shift={({2*(\x+1)},0)},color=black] (0pt,0pt) -- (0pt,3pt) node[above]
+  {$x_{j,\x}^U$};
+
+  \node at (2*4+2*0.5,0) {.~~.~~.};
+
+  \node[above] at ({2*5+2*0.5},0) {\scriptsize $n=N$};
+
+  \node[above] at (2*5,0) {$x_{j,N-1}^U$};
+  \node[below] at (2*5,0) {$x_{j,N}^L$};
+  \node[above] at (2*6,0) {$x_{j,N}^U$};
+
+  \node[above] at (2*1,0) {$x_j^L$};
+  \node[below] at (2*6,0) {$x_j^U$};
+
+\end{tikzpicture} %TODO: Discuss the number line here. Optimization will pick a single segment. Domain divide into N uniform partitions
+\caption{Piecewise McCormick Envelopes\label{fig:piecewise_mccormick}}
+\end{figure}
+
+A bilinear constraint is one in which we require that $w=xy$ where both $x$ and $y$ are variables. A common way to handle such a constraint is by enclosing it in concave and convex bounds known as McCormick envelopes, as shown in \autoref{fig:piecewise_mccormick}. Unfortunately, these bounds are often loose. This can be handled either by iteratively refining the bounds or by using mixed-integer programming to generate a series of small envelopes. This can be expressed via a \textit{generalized disjunctive program (GDP)}: %TODO: Cite Balas (1979); Raman & Grossman (1994)
+\begin{gather}
+x_{jn}^L = x_j^L + (x_j^U-x_j^L) \frac{n-1}{N} \\
+x_{jn}^U = x_j^L + (x_j^U-x_j^L) \frac{n}{N} \\
+x_i^L \le x_i \le x_i^U \\
+\bigvee_n\begin{bmatrix}
+y_{jn} \\
+w_{ij} \ge x_i\cdot x_{jn}^L + x_i^L \cdot x_j - x_i^L \cdot x_{jn}^L \\
+w_{ij} \ge x_i\cdot x_{jn}^U + x_i^U \cdot x_j - x_i^U \cdot x_{jn}^U \\
+w_{ij} \le x_i\cdot x_{jn}^L + x_i^U \cdot x_j - x_i^U \cdot x_{jn}^L \\
+w_{ij} \le x_i\cdot x_{jn}^U + x_i^L \cdot x_j - x_i^L \cdot x_{jn}^U \\
+x_{jn}^L \le x_j \le x_{jn}^U
+\end{bmatrix} \\
+y_{jn}\in\{\textrm{True},\textrm{False}\} \\
+\Omega(y) = \textrm{True}
+\end{gather}
+While some optimization DSLs can handle GDPs natively, we can re-express this is a MILP so that we solve it using a wide variety of solvers and DSLs~\citep{Grossman2012}.
+\begin{align}
+x_{jn}^L &= x_j^L + (x_j^U-x_j^L) \frac{n-1}{N} \\
+x_{jn}^U &= x_j^L + (x_j^U-x_j^L) \frac{n}{N} \\
+x_i^L &\le x_i \le x_i^U \\
+-w_{ij} + x_i\cdot x_{jn}^L + x_i^L \cdot x_j - x_i^L \cdot x_{jn}^L &\le M(1-y_{jn}) \\
+-w_{ij} + x_i\cdot x_{jn}^U + x_i^U \cdot x_j - x_i^U \cdot x_{jn}^U &\le M(1-y_{jn}) \\
+w_{ij} - x_i\cdot x_{jn}^L - x_i^U \cdot x_j + x_i^U \cdot x_{jn}^L &\le M(1-y_{jn})  \\
+w_{ij} - x_i\cdot x_{jn}^U - x_i^L \cdot x_j + x_i^L \cdot x_{jn}^U &\le M(1-y_{jn})  \\
+x_{jn}^L - x_j &\le M(1-y_{jn}) \\
+x_j - x_{jn}^U &\le M(1-y_{jn}) \\
+\sum_j y_{jn} &= 1 \\
+y_{jn}&\in\{0,1\}
+\end{align}
+%TODO: Discuss convex hull formulation shown in https://link.springer.com/content/pdf/10.1007/s10898-012-0022-1.pdf
+%TODO: Above takes waaaay too long with CBC for even 100 timesteps
+
+
+%TODO: Probably don't need this because we really want bilinear
 \subsection{Hyperbolic constraints}
 
 \subsubsection{As SOCPs}
@@ -632,6 +934,8 @@ Note that the optimal value of a scalar $w$ produced this way is the squart root
 
 \subsection{Michaelis--Menten Kinetics}
 \label{sec:mmkinetics}
+
+%TODO: DIscuss cvxpy atom solution
 
 The Michaelis--Menten relates the rate $y$ of an enzymatic reaction to the concentration $x$ of a substrate, as follows
 \begin{equation}
@@ -769,3 +1073,6 @@ and (3)~that the timing and quantity of allocations evolve to maximize an indivi
 
 %TODO: Make sure greek letters appear in minted/code outputs
 %TODO: Talk about costates!
+%TODO: Talk about collocation or RK45 or other more accurate discretizations of the differential equations
+
+%Acknowledgements: Gerpheides for hosting me in Dec 2021. Eleanor for hosting me while I started the mathematical programming work.

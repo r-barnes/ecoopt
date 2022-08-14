@@ -3,3 +3,11 @@ _minted*
 .hypothesis/
 .pyre/
 .pyre_configuration.local
+
+convex_life_histories.aux
+convex_life_histories.bbl
+convex_life_histories.blg
+convex_life_histories.log
+convex_life_histories.out
+convex_life_histories.pdf
+convex_life_histories.toc
