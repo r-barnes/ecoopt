@@ -18,59 +18,71 @@ from src.Mironchenko2014_figure5e import MironchenkoFigure5e
 from src.Iwasa2000_shoot_root_balance import Iwasa2000_shoot_root_balance
 from src.Piecewise2DConvex import Piecewise2DConvex
 
+
+
+# import src.MirmiraniOster1978_inverse_problem
+
 # p = Iwasa2000_when_flower()
 # fig = p.plotVariables()
+# fig.legend()
 # fig.savefig("imgs/iwasa2000_when_flower.pdf")
 
 # p = MirmiraniOster1978()
+# p.solve()
 # fig = p.plotVariables()
+# fig.legend()
 # fig.show()
 # plt.show()
 # fig.savefig("imgs/MirmiraniOster1978_single_season.pdf")
 
 
-uval = None
-while True:
-  p = MirmiraniOster1978_TwoSpeciesSingleSeason()
-  if uval is not None:
-    p.constraint(p.controls["u2"][0,:,:]==uval)
+# uval = None
+# while True:
+#   p = MirmiraniOster1978_TwoSpeciesSingleSeason()
+#   if uval is not None:
+#     p.constraint(p.controls["u2"][0,:,:]==uval)
 
-  # The problem here is figuring what to optimize and how to find an ESS with linear programming?
-  status, optval = p.solve(Maximize(p.vars["S1"][-1]), solver="ECOS", verbose=True)
+#   # The problem here is figuring what to optimize and how to find an ESS with linear programming?
+#   status, optval = p.solve(Maximize(p.vars["S1"][-1]), solver="ECOS", verbose=True)
 
-  print("Status", status)
-  print("Optval", optval)
+#   print("Status", status)
+#   print("Optval", optval)
 
-  fig = p.plotVariables()
-  fig.show()
-  plt.show()
+#   fig = p.plotVariables()
+#   fig.show()
+#   plt.show()
 
-  uval = p.controls["u1"][0,:,:].value
+#   uval = p.controls["u1"][0,:,:].value
 
 
-# p = MirmiraniOster1978_TwoSpeciesSingleSeason()
-# fig = p.plotVariables()
-# fig.show()
-# plt.show()
+p = MirmiraniOster1978_TwoSpeciesSingleSeason()
+fig = p.plotVariables()
+fig.legend()
+fig.show()
+plt.show()
 
 # plt.plot(p.vars["P1"].value, p.vars["P2"].value)
 # plt.plot(p.vars["S2"].value, p.vars["S1"].value)
 # plt.show()
 
 # p = Iwasa1989_multi_season(years=4)
+# p.solve(solver="ECOS")
 # fig = p.plotVariables(hide_vars=["g"], norm_controls=True)
+# fig.legend()
 # fig.show()
 # plt.show()
 # fig.savefig("imgs/Iwasa1989_multi_season.pdf")
 
 # p = MironchenkoFigure2(is_single=True)
 # fig = p.plotVariables(hide_vars=["f"], norm_controls=True)
+# fig.legend()
 # fig.show()
 # plt.show()
 # fig.savefig("imgs/Mironchenko_figure2a.pdf")
 
 # p = MironchenkoFigure2(is_single=False)
 # fig = p.plotVariables(hide_vars=["f"], norm_controls=True)
+# fig.legend()
 # fig.show()
 # plt.show()
 # fig.savefig("imgs/Mironchenko_figure2b.pdf")
@@ -78,6 +90,7 @@ while True:
 # Replicates
 # p = MironchenkoFigure4()
 # fig = p.plotVariables(hide_vars=["f"], norm_controls=True)
+# fig.legend()
 # fig.show()
 # plt.show()
 # fig.savefig("imgs/Mironchenko_figure4.pdf")
@@ -85,6 +98,7 @@ while True:
 # Doesn't reproduce
 # p = MironchenkoFigure3(is_annual=True)
 # fig = p.plotVariables(hide_vars=["f"], norm_controls=True)
+# fig.legend()
 # fig.show()
 # plt.show()
 # fig.savefig("imgs/Iwasa1989_multi_season.pdf")
@@ -92,6 +106,7 @@ while True:
 # Replicates
 # p = MironchenkoFigure5a()
 # fig = p.plotVariables(hide_vars=["f"], norm_controls=True)
+# fig.legend()
 # fig.show()
 # plt.show()
 # fig.savefig("imgs/MironchenkoFigure5a.pdf")
@@ -99,6 +114,7 @@ while True:
 # Replicates
 # p = MironchenkoFigure5c()
 # fig = p.plotVariables(hide_vars=["f"], norm_controls=True)
+# fig.legend()
 # fig.show()
 # plt.show()
 # fig.savefig("imgs/MironchenkoFigure5c.pdf")
@@ -106,6 +122,7 @@ while True:
 # Nearly replicates
 # p = MironchenkoFigure5e()
 # fig = p.plotVariables(hide_vars=["f"], norm_controls=True)
+# fig.legend()
 # fig.show()
 # plt.show()
 # fig.savefig("imgs/MironchenkoFigure5e.pdf")
@@ -145,5 +162,6 @@ while True:
 
 # p = Iwasa2000_shoot_root_balance()
 # fig = p.plotVariables(hide_vars=["g"], norm_controls=True)
+# fig.legend()
 # fig.show()
 # plt.show()
