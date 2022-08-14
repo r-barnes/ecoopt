@@ -1,0 +1,11 @@
+cff-version: 1.2.0
+message: "If you've found this useful, please cite it as below."
+authors:
+- family-names: "Barnes"
+  given-names: "Richard"
+  orcid: "https://orcid.org/0000-0002-0204-6040"
+title: "Mathematical Programming for Ecological Optimization Problems"
+version: 1.0.0
+doi: 10.5281/zenodo.6990460
+date-released: 2022-08-14
+url: "https://github.com/r-barnes/ecoopt"
