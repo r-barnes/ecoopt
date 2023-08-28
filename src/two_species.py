@@ -53,7 +53,7 @@ constraints += [u1[t] + u2[t] == g[t] for t in range(ntimes)]
 objective = cp.Maximize(R1[-1])
 
 F2 = [0 for _ in range(ntimes)]
-for fi in range(5):
+for fi in range(15):
   if fi != 0:
     F2 = F1.value.copy()
   mmc = [michaelis_menten_constraint(g[t], F1[t], β1=h, β2=1+F2[t], β3=0.1) for t in range(ntimes)]
@@ -75,11 +75,11 @@ axs[0, 0].plot(times, u1_original, label="Leaf Control")
 axs[0, 0].plot(times, u2_original, label="Seed Control")
 axs[0, 0].legend()
 
+axs[0, 1].set_title("With Competition")
 axs[0, 1].plot(times, u1.value, label="Leaf Control")
 axs[0, 1].plot(times, u2.value, label="Seed Control")
 axs[0, 1].legend()
 
-axs[0, 0].set_title("With Competition")
 axs[1, 0].plot(times, F1_original, label="Leaves 1")
 axs[1, 0].plot(times, R1_original, label="Seeds 1")
 axs[1, 0].plot(times, F2_original, label="Leaves 2")
