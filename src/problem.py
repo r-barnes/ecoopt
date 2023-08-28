@@ -434,7 +434,7 @@ class Problem:
     elif isinstance(t, tuple):
       self.constraint(cp.sum(control[t[0], t[1], :]) <= sum_var) #TODO: Should this be == or <= ?
     else:
-      raise RuntimeError("Bad type for 't'!")
+      raise RuntimeError(f"Bad type for 't': {type(t)}!")
 
   def add_sos2_constraint(self, x: Variable) -> None:
     # TODO: From https://www.philipzucker.com/trajectory-optimization-of-a-pendulum-with-mixed-integer-linear-programming/
